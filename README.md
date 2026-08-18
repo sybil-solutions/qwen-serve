@@ -54,6 +54,7 @@ curl http://localhost:8000/v1/chat/completions \
 | `DSPARK` | `1` | `1 \| 0` | DSpark speculative decoding. Auto-disabled on TP1 (insufficient VRAM for draft model). Recommended on 2×/4×. |
 | `PORT` | `8000` | | host port |
 | `MODELS_DIR` | `/models` | | mount a volume here to cache weights across restarts |
+| `TOOL_PARSER` | `hermes_xml` | | tool-call parser. `hermes_xml` (default) is required for Qwen3.8-27B's chat template, which renders tools as Hermes-2-Pro XML (`<tool_call><function=…><parameter=…>`); the stock `qwen`/`hermes` parsers expect JSON inside the envelope and silently drop XML calls. Any sglang parser name works (`qwen`, `hermes`, `auto`, …). |
 
 ## Pinned software stack
 

@@ -45,6 +45,18 @@ ENV CUDA_HOME=/opt/cuda \
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# ---- Hermes-2-Pro XML tool-call parser (fixes structured tool calls) ----
+# Qwen3.8-27B's chat template renders tools as XML (<function=name><parameter=k>v</parameter>),
+# but sglang's built-in parsers expect JSON inside <tool_call> and silently drop
+# XML calls (empty content, tool_calls=[]). Install + register the XML detector.
+COPY hermes_xml_detector.py /opt/venv/lib/python3.12/site-packages/sglang/srt/function_call/hermes_xml_detector.py
+RUN P=/opt/venv/lib/python3.12/site-packages/sglang/srt/function_call/function_call_parser.py && \
+    grep -q hermes_xml_detector "$P" || sed -i \
+      -e 's|from sglang.srt.function_call.hermes_detector import HermesDetector|from sglang.srt.function_call.hermes_detector import HermesDetector\nfrom sglang.srt.function_call.hermes_xml_detector import HermesXMLDetector|' \
+      -e 's|"hermes": HermesDetector,|"hermes": HermesDetector,\n        "hermes_xml": HermesXMLDetector,|' "$P" && \
+    grep -c hermes_xml "$P"
+
 VOLUME /models
 EXPOSE 8000
 ENTRYPOINT ["/entrypoint.sh"]
