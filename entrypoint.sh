@@ -1,11 +1,13 @@
 #!/bin/bash
 # Qwen3.8-27B AWQ-INT4 + DSpark on RTX 3090s (validated presets)
-# Env: TP (1|2|4, default 1), PORT (default 8000), DSPARK (1|0, default 1), MODELS_DIR (default /models)
+# Env: TP (1|2|4, default 1), PORT (default 8000), DSPARK (1|0, default 1),
+#      MODELS_DIR (default /models), TOOL_PARSER (default hermes_xml)
 set -e
 TP=${TP:-1}
 PORT=${PORT:-8000}
 DSPARK=${DSPARK:-1}
 MODELS=${MODELS_DIR:-/models}
+TOOL_PARSER=${TOOL_PARSER:-hermes_xml}
 AWQ=$MODELS/Qwen3.8-27B-AWQ-INT4
 DRAFT=$MODELS/Qwen3.8-27B-DSpark
 
@@ -51,4 +53,4 @@ exec python3 -m sglang.launch_server \
   --chunked-prefill-size 4096 \
   --mamba-radix-cache-strategy extra_buffer \
   $TPFLAGS $SPECFLAGS \
-  --host 0.0.0.0 --port "$PORT"
+  --tool-call-parser "$TOOL_PARSER" --host 0.0.0.0 --port "$PORT"
