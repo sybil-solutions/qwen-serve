@@ -38,8 +38,22 @@ docker run -d --name qwen-b70 --device $R --memory 16g --memory-swap 16g --shm-s
   --cuda-graph-bs-decode 1 2 4 --reasoning-parser qwen3 --tool-call-parser qwen3_coder
 ```
 
-Image: [local-ai-images `qwen38-flash-next-b70-offload`](https://github.com/sybil-solutions/local-ai-images/tree/main/qwen38-flash-next-b70-offload),
-built and attested by CI from commit 2f108fb. Measured on this digest at 16 GiB: 8k C1 29.3 / C2 39.3 / C4 49.2 tok/s,
+## Published image provenance
+
+| Field | Value |
+| --- | --- |
+| Image | `ghcr.io/sybil-solutions/qwen38-flash-next-b70-offload` |
+| Pinned OCI index digest | `sha256:d30df691d6ab890b95f7c6179e4b677a0d759018e39b20e93bf0efdb8780450c` |
+| Image build source commit | [`local-ai-images@16ffb061e5ef149a0cb86923148f922ce0cced12`](https://github.com/sybil-solutions/local-ai-images/commit/16ffb061e5ef149a0cb86923148f922ce0cced12) |
+| Offload component source commit | [`qwen38-flash-next-b70-offload@2f108fbe52c4173c3acf63f66bf64a9b12580619`](https://github.com/sybil-solutions/qwen38-flash-next-b70-offload/commit/2f108fbe52c4173c3acf63f66bf64a9b12580619) |
+| Trellis component source commit | [`trellis-serve@72fd2d4ca8e8de3fce03ab09e3ed1692957c2f8c`](https://github.com/sybil-solutions/trellis-serve/commit/72fd2d4ca8e8de3fce03ab09e3ed1692957c2f8c) |
+| Evidence | BuildKit SLSA `vcs:revision` for the builder; `ai.omarchy.*.commit` config labels for components |
+| Pull access | Public; anonymous manifest fetch and digest match verified 2026-10-12 |
+| Registry status | No B70-offload recipe at registry snapshot `8cc343980abde31c4f881961763aa8850a3fa41e`; see chat-gate limitation below |
+
+The [image Dockerfile](https://github.com/sybil-solutions/local-ai-images/blob/16ffb061e5ef149a0cb86923148f922ce0cced12/qwen38-flash-next-b70-offload/Dockerfile)
+was built and attested by CI. The offload component commit is not a commit of the image-builder repository.
+Measured on this digest at 16 GiB: 8k C1 29.3 / C2 39.3 / C4 49.2 tok/s,
 32k C1 29.7 / C2 40.1, prefill 1,064-1,296 tok/s; at 32 GiB: 8k C1 25.2 / C4 33.9, 32k C1 26.3.
 
 The server is ready in about 2.5 minutes at `http://127.0.0.1:30000/v1`, model `flashnext`. For 32 GiB use

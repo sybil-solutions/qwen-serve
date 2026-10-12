@@ -10,7 +10,7 @@
 #     -v /home/sero/models:/models \
 #     -p 8020:8020 \
 #     -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-#     ghcr.io/0xsero/qwen38-3090-sglang:latest \
+#     ghcr.io/0xsero/qwen38-3090-sglang@sha256:cc2bfc369c709c53d239ef2af41d4ae2530904975816bb2ca484188008586ac9 \
 #     bash /sglang/cuda/start_sglang_bf16.sh
 
 set -euo pipefail

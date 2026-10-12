@@ -32,6 +32,36 @@ Running Qwen3.6-35B-A3B (35B MoE, 3B active, hybrid GDN architecture) on:
 | EXL3 TP=4 | 4× 3090 | ❌ TP bug | — | PR #290 OOB write in exl3_mgemm |
 | DSpark spec decode | any | ❌ No sglang support | — | sglang has no DSpark; use vLLM with `--speculative-config` |
 
+## Published image provenance
+
+| Field | Value |
+| --- | --- |
+| B70/XPU image | `ghcr.io/0xsero/qwen36-b70-sglang` |
+| Pinned registry digest | `sha256:d027487a07e4391562b4460da72bc78008be129d44af540148787e02e3045c08` |
+| Registry-recorded launcher source commit | [`15166aed68bc25c411e16ddd81621242ba3d6298`](https://github.com/sybil-solutions/qwen36-b70/commit/15166aed68bc25c411e16ddd81621242ba3d6298) |
+| Evidence | [`Registry recipe's launch.source`](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/data/registry/recipe/qwen36-35b-a3b-layered-fp8-arcb70-sglang-tp2.json); this is not an attested image-build revision |
+| Pull access | **Private**; authenticated manifest fetch and digest match verified 2026-10-12; anonymous pull denied |
+| Registry launch | [`sglang-qwen3.6-35b-a3b-online-fp8-weights-with-fp16-activations-8k`](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/registry/launches/sglang-qwen3.6-35b-a3b-online-fp8-weights-with-fp16-activations-8k.json) |
+
+The registry proof is marked legacy. The image retains Intel base-image labels, including
+`intel/containers@ac12083301cbdbe06135882d401f7877b0b512db`; those do **not** identify the custom
+SGLang image's build commit. No exact custom image-build Git revision is attested by the inspected
+manifest/config. The table identifies the recorded launcher source rather than inventing build provenance.
+The image was published from the local `llm-scaler-sgl:bmg` build; it is not a publicly pullable substitute.
+
+The local-build quick start below remains valid. To use the registry copy, first authenticate to GHCR
+with an account authorized for the private package, then run:
+
+```bash
+IMAGE=ghcr.io/0xsero/qwen36-b70-sglang@sha256:d027487a07e4391562b4460da72bc78008be129d44af540148787e02e3045c08 \
+  MODEL_ROOT=/path/to/models ./sglang/xpu/run_qwen3_6_service.sh
+```
+
+The CUDA examples below share the public
+[`qwen38-3090-sglang` image and its build source commit](../../qwen3.8/3090-sglang/README.md#published-image-provenance);
+they are pinned to that image's digest, not its mutable `latest` tag. This is a CUDA path, not a replacement
+for the B70/XPU image.
+
 ## Quick start: sglang XPU FP8 on 2× Intel Arc B70
 
 The B70 path uses the `llm-scaler-sgl:bmg` image (built locally from `intel/llm-scaler/sglang/docker/Dockerfile`). The model loads as bf16 to host RAM, then each module is quantized to FP8 on-device (`--load-format layered_fp8`), so a TP=2 split fits in 64 GB total VRAM.
@@ -91,7 +121,7 @@ docker run -d --name sglang-cuda-bf16 --gpus all --shm-size=4g \
   -v /path/to/models:/models \
   -p 8020:8020 \
   -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
-  ghcr.io/0xsero/qwen38-3090-sglang:latest \
+  ghcr.io/0xsero/qwen38-3090-sglang@sha256:cc2bfc369c709c53d239ef2af41d4ae2530904975816bb2ca484188008586ac9 \
   python3 -m sglang.launch_server \
   --model-path /models/Qwen3.6-35B-A3B \
   --tp 4 --dtype bfloat16 --trust-remote-code \
@@ -126,7 +156,7 @@ docker run -d --name sglang-cuda-mtp --gpus all --shm-size=4g \
   -v ./sglang/cuda/start_sglang_bf16_mtp.sh:/start.sh:ro \
   -p 8020:8020 \
   -e PORT=8020 \
-  ghcr.io/0xsero/qwen38-3090-sglang:latest \
+  ghcr.io/0xsero/qwen38-3090-sglang@sha256:cc2bfc369c709c53d239ef2af41d4ae2530904975816bb2ca484188008586ac9 \
   bash /start.sh
 ```
 

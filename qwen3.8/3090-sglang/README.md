@@ -30,7 +30,20 @@ docker run --gpus all --shm-size 32g -p 8000:8000 \
   "$IMAGE"
 ```
 
-The digest above is the public image built from source commit `55ab5b924c3d2176c65bf1132d6c2a5d51ab394e`. Pin the digest for reproducible launches; `:latest` is only a convenience tag.
+## Published image provenance
+
+| Field | Value |
+| --- | --- |
+| Image | `ghcr.io/0xsero/qwen38-3090-sglang` |
+| Pinned OCI index digest | `sha256:cc2bfc369c709c53d239ef2af41d4ae2530904975816bb2ca484188008586ac9` |
+| Image source commit | [`55ab5b924c3d2176c65bf1132d6c2a5d51ab394e`](https://github.com/sybil-solutions/qwen-serve/commit/55ab5b924c3d2176c65bf1132d6c2a5d51ab394e) |
+| Evidence | Image config's `org.opencontainers.image.revision` and `org.opencontainers.image.source` labels |
+| Pull access | Public; anonymous manifest fetch and digest match verified 2026-10-12 |
+| Registry launch | [`sglang-qwen3.8-27b-int4-w4a16-135k`](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/registry/launches/sglang-qwen3.8-27b-int4-w4a16-135k.json) |
+
+This image predates the repository rename/fold; its source label still names `0xSero/qwen38-3090-sglang`,
+which redirects here. The source commit is the image build revision, not the later fold commit.
+Pin the digest for reproducible launches; `:latest` is only a convenience tag.
 
 Weights (~23 GB target + 2.6 GB draft) download automatically into the mounted `/models` volume on first start. First boot takes ~5 min (kernel JIT compilation).
 

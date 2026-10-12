@@ -17,6 +17,32 @@ curl http://localhost:8010/v1/chat/completions \
        "messages":[{"role":"user","content":"Hello"}]}'
 ```
 
+## Published image provenance
+
+| Field | Value |
+| --- | --- |
+| Canonical image | `ghcr.io/0xsero/qwen38-b70-attested` |
+| Pinned OCI index digest (1× and 2× B70) | `sha256:6ce7771eaa155e31916ac3144bd3aa34bed6584b9a43052a8f6b583b9c8f5db1` |
+| Image source commit | [`0f9950b741185d209a70747db304986ed3b7946b`](https://github.com/sybil-solutions/qwen38-b70/commit/0f9950b741185d209a70747db304986ed3b7946b) |
+| Evidence | BuildKit SLSA provenance's `vcs:source` and `vcs:revision` |
+| Pull access | Public; anonymous manifest fetch and digest match verified 2026-10-12 |
+| Registry launches | [`128k`](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/registry/launches/llama-cpp-qwen3.8-27b-q4-k-m-128k.json), [`256k`](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/registry/launches/llama-cpp-qwen3.8-27b-q4-k-m-256k.json) |
+
+```bash
+docker pull ghcr.io/0xsero/qwen38-b70-attested@sha256:6ce7771eaa155e31916ac3144bd3aa34bed6584b9a43052a8f6b583b9c8f5db1
+```
+
+The compose quick start builds from this folder; the registry launches use the published image above.
+Its build predates the fold and still names the archived source repository in provenance.
+
+The historical private image is **`ghcr.io/0xsero/qwen38-b70`**, digest
+`sha256:37219eaeeb2e8398f59e427ec0c723bbe2eeb8ec59e6b154ea63c4172238c342`.
+It still resolves with an authorized GHCR login (verified 2026-10-12), but is not the `-attested` image.
+The registry's [historical recipe record](https://github.com/sybil-solutions/local-ai-registry/blob/8cc343980abde31c4f881961763aa8850a3fa41e/data/registry/recipe/qwen38-q4km-arcb70-llamacpp-tp1.json)
+records source commit [`e8738535c8914a4fe6a54235754e27eeb8078601`](https://github.com/sybil-solutions/qwen38-b70/commit/e8738535c8914a4fe6a54235754e27eeb8078601);
+that is registry-recorded identity, not an attested Git revision. Current launches already use the public
+canonical pin; do not combine the old digest with the new package name.
+
 ## Measured performance (Q4_K_M, f16 KV)
 
 ### 2x B70, tensor parallel (`GPU_COUNT=2`)
