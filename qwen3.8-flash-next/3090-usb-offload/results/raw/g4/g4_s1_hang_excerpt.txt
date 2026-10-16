@@ -1,0 +1,31 @@
+1722:[tgcu HANG] compute sem 10817 want 10818 (submitted 10818); CE sem 328872 (submitted 328872); last ('tgcu_memcpy', (61, 1, 1), (256, 1, 1), 0)
+[tgcu HANG] compute sem 10817 want 10818 (submitted 10818); CE sem 328872 (submitted 328872); last ('tgcu_memcpy', (61, 1, 1), (256, 1, 1), 0)
+Current thread 0x00000001edd26180 (most recent call first):
+  File "$HOME/shim/tgcu.py", line 442 in _hang_dump
+  File "$HOME/shim/tgcu.py", line 453 in _wait
+  File "$HOME/shim/tgcu.py", line 368 in _transient
+  File "$HOME/shim/tgcu.py", line 376 in _submit
+  File "$HOME/shim/tgcu.py", line 472 in graph_launch
+  File "$HOME/shim/tgcu_api.py", line 500 in graph_launch
+[tgcu] python error in graph_launch
+Traceback (most recent call last):
+  File "$HOME/shim/tgcu_api.py", line 500, in graph_launch
+    ctx.graph_launch(execs[e])
+  File "$HOME/shim/tgcu.py", line 472, in graph_launch
+    self._submit(self._pushbuf(first_qmd))
+  File "$HOME/shim/tgcu.py", line 376, in _submit
+    off = self._transient(len(pb))
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "$HOME/shim/tgcu.py", line 368, in _transient
+    self._wait(self.sem_value)
+  File "$HOME/shim/tgcu.py", line 458, in _wait
+    raise RuntimeError(f"GPU timeout waiting for semaphore {value} (last {self.last_launch}): {report}")
+RuntimeError: GPU timeout waiting for semaphore 10818 (last ('tgcu_memcpy', (61, 1, 1), (256, 1, 1), 0)): 
+[tgcu HANG] compute sem 10817 want 10818 (submitted 10818); CE sem 328872 (submitted 328872); last ('tgcu_memcpy', (61, 1, 1), (256, 1, 1), 0)
+Current thread 0x00000001edd26180 (most recent call first):
+  File "$HOME/shim/tgcu.py", line 442 in _hang_dump
+  File "$HOME/shim/tgcu.py", line 453 in _wait
+  File "$HOME/shim/tgcu.py", line 462 in synchronize
+  File "$HOME/shim/tgcu_api.py", line 435 in synchronize
+[tgcu] python error in synchronize
+Traceback (most recent call last):

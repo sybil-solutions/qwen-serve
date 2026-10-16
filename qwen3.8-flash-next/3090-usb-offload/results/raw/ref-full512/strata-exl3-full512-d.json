@@ -1,0 +1,41 @@
+{
+ "exe": "$HOME/shim/run-strata.sh",
+ "cwd": "$HOME/strata",
+ "tokenizer": "$HOME/models/qwen38fn/packs/iq3_s/tokenizer",
+ "model_name": "qwen3.8-flash-next-exl3-3.05bpw-full512-d",
+ "log": "$HOME/shim/serve-engine.log",
+ "args": [
+  "--pack",
+  "$HOME/exl3/pack_full512",
+  "--native",
+  "$HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf",
+  "--ple-gguf",
+  "$HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf",
+  "--expert-profile",
+  "$HOME/exl3/placement/f512c/profile.bin",
+  "--expert-cache",
+  "auto",
+  "--prefill",
+  "2048",
+  "--spec",
+  "4",
+  "--spec-min-p",
+  "0.5",
+  "--mtp",
+  "$HOME/models/qwen38fn/mtp/rt",
+  "--max-context",
+  "8192",
+  "--mmap-experts",
+  "--pcie-frac",
+  "0",
+  "--adapt-every",
+  "0",
+  "--resident-budget-gib",
+  "6",
+  "--vram-reserve-mib",
+  "100"
+ ],
+ "env": {
+  "STRATA_RESIDENT_HEADROOM_GIB": "1.5"
+ }
+}

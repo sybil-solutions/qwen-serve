@@ -1,0 +1,21 @@
+== kvres 2026-10-12T01:18:33Z cfg=$HOME/shim/strata-exl3-full512-kvres.json
+[strata] 2026-10-11 18:18:35 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --kv-resident 20480 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: KV streaming: 20480 of 204800 cells per QSA layer in VRAM, the K/V in 1.87 GiB of pinned RAM
+strata generate: expert cache auto: 15.14 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7513 slots
+strata generate: expert cache 7513 slots, 13.03 GiB of VRAM; policy is
+strata generate: pre-filled 7513 of 7513 slots from the profile in 66.1 s (212 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.57 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 465 MiB of VRAM free with everything loaded
+READY
+-- run 1
+{"i": 0, "wall_s": 37.4, "prompt_n": 29, "prompt_ms": 4003.0, "predicted_n": 300, "predicted_ms": 33393.5, "tok_s": 9.0, "drafts": "214/257", "pageins_mib": 29682, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 21.8, "prompt_n": 35, "prompt_ms": 2741.8, "predicted_n": 240, "predicted_ms": 19047.4, "tok_s": 12.6, "drafts": "124/231", "pageins_mib": 7627, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 33.0, "prompt_n": 29, "prompt_ms": 2904.2, "predicted_n": 275, "predicted_ms": 30082.2, "tok_s": 9.1, "drafts": "122/233", "pageins_mib": 13820, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- run 2
+{"i": 0, "wall_s": 36.3, "prompt_n": 29, "prompt_ms": 2313.6, "predicted_n": 300, "predicted_ms": 33938.3, "tok_s": 8.8, "drafts": "213/254", "pageins_mib": 29799, "pageouts_mib": 1, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 21.9, "prompt_n": 35, "prompt_ms": 2730.1, "predicted_n": 240, "predicted_ms": 19169.3, "tok_s": 12.5, "drafts": "124/231", "pageins_mib": 7703, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 32.9, "prompt_n": 29, "prompt_ms": 2866.4, "predicted_n": 275, "predicted_ms": 29992.0, "tok_s": 9.2, "drafts": "122/233", "pageins_mib": 13774, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+== done

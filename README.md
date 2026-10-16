@@ -10,6 +10,7 @@ pin every published image by digest.
 | Qwen3.8-27B | 3090-sglang | SGLang, AWQ-INT4 + DSpark | 1× / 2× / 4× RTX 3090 | [`qwen3.8/3090-sglang`](qwen3.8/3090-sglang) | `ghcr.io/0xsero/qwen38-3090-sglang@sha256:cc2bfc36…` |
 | Qwen3.8-27B | b70 | llama.cpp SYCL, Q4_K_M | 1× / 2× Intel Arc Pro B70 | [`qwen3.8/b70`](qwen3.8/b70) | `ghcr.io/0xsero/qwen38-b70-attested@sha256:37219eae…` / `…6ce7771e…` |
 | Qwen3.8-Flash-Next | b70-offload | SGLang XPU + exl3xpu, experts on NVMe | 1× Intel Arc Pro B70 | [`qwen3.8-flash-next/b70-offload`](qwen3.8-flash-next/b70-offload) | `ghcr.io/sybil-solutions/qwen38-flash-next-b70-offload` |
+| Qwen3.8-Flash-Next | 3090-usb-offload | EXL3 3 bpw, experts over USB | 1× RTX 3090 + Mac mini M4 | [`qwen3.8-flash-next/3090-usb-offload`](qwen3.8-flash-next/3090-usb-offload) | — |
 | Qwen3.6-35B-A3B | b70 | SGLang XPU FP8, SGLang CUDA, EXL3 | 2× B70, 4× RTX 3090 | [`qwen3.6/b70`](qwen3.6/b70) | — |
 
 ## Workflows

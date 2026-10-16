@@ -1,0 +1,12 @@
+--- a/src/prefill/prefill.cpp
++++ b/src/prefill/prefill.cpp
+@@ -4501,7 +4501,8 @@
+                 g0 += Tc;
+                 continue;
+             }
+-            const bool split = pf_splitf() && gn >= 2;   // F1 / F2 / B turns (the y push on the copy stream behind the next chunk's front): lag >= 1, Mac jobs in flight = lag
++            static const int split_min = [] { const char* v = std::getenv("STRATA_PF_SPLITF_MIN"); return v != nullptr ? std::max(2, std::atoi(v)) : 2; }();   // measured: the split order gains on 4-chunk groups (+9%) and loses on 2-chunk ones (-25%)
++            const bool split = pf_splitf() && gn >= split_min;   // F1 / F2 / B turns (the y push on the copy stream behind the next chunk's front): lag >= 1, Mac jobs in flight = lag
+             const int lag = split ? std::clamp(pf_lag_req(G), 1, std::min(gn - 1, pf_jobs()))
+                                   : std::clamp(pf_lag_req(G), 0, std::min(gn - 1, pf_jobs() - 1));   // Mac jobs in flight = lag + 1 (lag when split) <= the Metal context's job slots
+             Lockstep ls(gn, LE - LB, lag, split);

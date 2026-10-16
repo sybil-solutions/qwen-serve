@@ -1,0 +1,31 @@
+== final 2026-10-12T02:07:38Z
+[strata] 2026-10-11 19:07:41 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7640 slots
+strata generate: expert cache 7640 slots, 13.25 GiB of VRAM; policy is
+strata generate: pre-filled 7640 of 7640 slots from the profile in 67.4 s (211 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.61 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 618 MiB of VRAM free with everything loaded
+READY
+-- decode run 1
+{"i": 0, "wall_s": 32.4, "prompt_n": 29, "prompt_ms": 3514.9, "predicted_n": 300, "predicted_ms": 28840.9, "tok_s": 10.4, "drafts": "213/257", "pageins_mib": 29840, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 16.8, "prompt_n": 35, "prompt_ms": 2362.9, "predicted_n": 248, "predicted_ms": 14393.8, "tok_s": 17.2, "drafts": "128/228", "pageins_mib": 7491, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 22.8, "prompt_n": 29, "prompt_ms": 2563.3, "predicted_n": 279, "predicted_ms": 20217.4, "tok_s": 13.8, "drafts": "143/251", "pageins_mib": 12653, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- decode run 2
+{"i": 0, "wall_s": 31.8, "prompt_n": 29, "prompt_ms": 2027.4, "predicted_n": 300, "predicted_ms": 29731.4, "tok_s": 10.1, "drafts": "211/258", "pageins_mib": 30487, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 16.8, "prompt_n": 35, "prompt_ms": 2367.1, "predicted_n": 248, "predicted_ms": 14443.4, "tok_s": 17.2, "drafts": "129/234", "pageins_mib": 7734, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 24.7, "prompt_n": 29, "prompt_ms": 2588.8, "predicted_n": 268, "predicted_ms": 22119.8, "tok_s": 12.1, "drafts": "120/244", "pageins_mib": 13634, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- prefill
+10000 chars 3783 tokens 15026 ms 251.8 tok/s reply 'OK' wall 15.4
+25000 chars 8217 tokens 44616 ms 184.2 tok/s reply 'OK' wall 44.8
+55000 chars 17610 tokens 48828 ms 360.7 tok/s reply 'OK' wall 49.2
+-- needle 32K
+{"tokens": 32000, "depth": 50, "word": "meadow-copper-504", "found": true, "first_line_ok": true, "prompt_n": 33253, "cache_n": 0, "prompt_ms": 99729.8, "prefill_tok_s": 333.4, "ttft_s": 99.7, "predicted_n": 151, "decode_tok_s": 14.1, "drafts": "81/141", "wall_s": 110.5, "answer": "meadow-copper-504\n\nThis text is a comprehensive technical documentation set for \"Strata,\" a local AI inference engine running the Qwen3.8-Flash-Next model. It p"}
+-- vision
+Traceback (most recent call last):
+  File "$HOME/strata-mac-vision/../shim/final_vision.py", line 4, in <module>
+    from PIL import Image, ImageDraw, ImageFont
+ModuleNotFoundError: No module named 'PIL'
+== done

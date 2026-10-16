@@ -1,0 +1,17 @@
+== t3a 2026-10-12T02:55:59Z cfg=$HOME/shim/pf500-t3a.json
+[strata] 2026-10-11 19:56:00 engine started: $HOME/shim/run-strata-next.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7640 slots
+strata generate: expert cache 7640 slots, 13.25 GiB of VRAM; policy is
+strata generate: pre-filled 7640 of 7640 slots from the profile in 66.4 s (214 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.66 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 618 MiB of VRAM free with everything loaded
+READY
+1500 chars 569 tokens 14679 ms 38.8 tok/s reply 'OK' wall 15.2
+10000 chars 3782 tokens 14699 ms 257.3 tok/s reply 'OK' wall 14.9
+10000 chars 3783 tokens 13238 ms 285.8 tok/s reply 'OK' wall 13.5
+25000 chars 8218 tokens 28413 ms 289.2 tok/s reply 'OK' wall 28.6
+55000 chars 17610 tokens 45920 ms 383.5 tok/s reply 'OK' wall 46.3
+== done 2026-10-12T03:00:00Z

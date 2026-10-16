@@ -1,0 +1,26 @@
+PASS neon_vs_numpy_f64 {'rel_rms': 8.2789e-05, 'max_abs': 3.0171e-05, 'secs': 0.1}
+PASS decode m=1 E=10 pairs=10 nocopy {'rel_rms': 7.2349e-05, 'max_abs': 2.5645e-05, 'ref_max': 0.331779242}
+PASS decode m=1 E=10 pairs=10 staged {'rel_rms': 7.2349e-05, 'max_abs': 2.5645e-05, 'ref_max': 0.331779242}
+PASS decode m=2 E=13 pairs=26 nocopy {'rel_rms': 5.0641e-05, 'max_abs': 2.12e-05, 'ref_max': 0.449005455}
+PASS decode m=2 E=13 pairs=26 staged {'rel_rms': 5.0641e-05, 'max_abs': 2.12e-05, 'ref_max': 0.449005455}
+PASS decode m=4 E=13 pairs=39 nocopy {'rel_rms': 4.7903e-05, 'max_abs': 2.1052e-05, 'ref_max': 0.352523178}
+PASS decode m=4 E=13 pairs=39 staged {'rel_rms': 4.7903e-05, 'max_abs': 2.1052e-05, 'ref_max': 0.352523178}
+PASS decode m=4 E=20 pairs=40 nocopy {'rel_rms': 5.5526e-05, 'max_abs': 2.6185e-05, 'ref_max': 0.355489582}
+PASS decode m=4 E=20 pairs=40 staged {'rel_rms': 5.5526e-05, 'max_abs': 2.6185e-05, 'ref_max': 0.355489582}
+PASS decode m=8 E=10 pairs=80 nocopy {'rel_rms': 5.0874e-05, 'max_abs': 2.186e-05, 'ref_max': 0.413353443}
+PASS decode m=8 E=10 pairs=80 staged {'rel_rms': 5.0874e-05, 'max_abs': 2.186e-05, 'ref_max': 0.413353443}
+PASS decode m=3 E=7 pairs=21 nocopy {'rel_rms': 4.4996e-05, 'max_abs': 1.733e-05, 'ref_max': 0.335884213}
+PASS decode m=3 E=7 pairs=21 staged {'rel_rms': 4.4996e-05, 'max_abs': 1.733e-05, 'ref_max': 0.335884213}
+PASS negative wrong-expert detected {'rel_rms': 0.320856842, 'max_abs': 0.117669463, 'baseline_rel': 4.7552e-05}
+PASS negative corrupted-trellis detected {'rel_rms': 0.002325082, 'max_abs': 0.002418235, 'restored_rel': 4.7552e-05}
+PASS negative weight-mismatch detected {'rel_rms': 0.007339665, 'max_abs': 0.003092162}
+PASS determinism decode x30 bitwise {}
+PASS prefill n_tok=160 topk=4 experts=24 nocopy {'rel_rms': 7.2966e-05, 'max_abs': 3.9976e-05, 'ref_max': 0.304731965}
+PASS prefill n_tok=160 topk=4 experts=24 staged {'rel_rms': 7.2966e-05, 'max_abs': 3.9976e-05, 'ref_max': 0.304731965}
+PASS prefill path vs decode path (m=4, 9 experts; two fp32 accumulation orders) {'rel_rms': 7.1855e-05, 'max_abs': 1.5527e-05}
+PASS determinism prefill x6 bitwise {}
+PASS prefill chunk size independence (3 vs 16 experts) {'rel_rms': 2.8e-08, 'max_abs': 1.5e-08}
+PASS multi-piece NoCopy registration == single piece (bitwise), all 48 blobs in place {'staged_delta': 0, 'mapped_delta': 48}
+PASS thread safety 6 threads x 12 calls (2 slots) bitwise == serial {'mismatches': 0}
+PASS async submit/wait, two jobs in flight, out-of-order wait {}
+ALL PASS

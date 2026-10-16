@@ -1,0 +1,15 @@
+== a1 2026-10-12T03:44:56Z cfg=$HOME/shim/g4a.json
+$HOME/shim/ls_srv.sh:10: no such file or directory: $HOME/shim/g4_engine.log
+[strata] 2026-10-11 20:44:58 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7569 slots
+strata generate: expert cache 7569 slots, 13.13 GiB of VRAM; policy is
+strata generate: pre-filled 7569 of 7569 slots from the profile in 66.6 s (212 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.57 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 622 MiB of VRAM free with everything loaded
+READY
+-- needle 32000
+{"tokens": 32000, "depth": 50, "word": "meadow-copper-504", "found": true, "first_line_ok": true, "prompt_n": 33253, "cache_n": 0, "prompt_ms": 91632.2, "prefill_tok_s": 362.9, "ttft_s": 91.6, "predicted_n": 132, "decode_tok_s": 15.3, "drafts": "73/104", "wall_s": 100.3, "answer": "meadow-copper-504\n\nThis text is a comprehensive technical documentation set for \"Strata,\" a local AI inference engine running the Qwen3.8-Flash-Next model. It p"}
+== done 2026-10-12T03:48:39Z

@@ -1,0 +1,27 @@
+== s1 2026-10-12T03:48:56Z
+{"i": 0, "wall_s": 34.4, "prompt_n": 29, "prompt_ms": 2113.2, "predicted_n": 300, "predicted_ms": 32285.1, "tok_s": 9.3, "drafts": "212/255", "pageins_mib": 35390, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 17.5, "prompt_n": 35, "prompt_ms": 2538.0, "predicted_n": 253, "predicted_ms": 14899.4, "tok_s": 17.0, "drafts": "136/220", "pageins_mib": 8756, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 27.2, "prompt_n": 29, "prompt_ms": 2705.2, "predicted_n": 294, "predicted_ms": 24515.3, "tok_s": 12.0, "drafts": "138/257", "pageins_mib": 16549, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+{"i": 0, "wall_s": 35.1, "prompt_n": 29, "prompt_ms": 2097.1, "predicted_n": 300, "predicted_ms": 33023.2, "tok_s": 9.1, "drafts": "210/259", "pageins_mib": 36260, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 16.6, "prompt_n": 35, "prompt_ms": 2496.9, "predicted_n": 237, "predicted_ms": 14128.6, "tok_s": 16.8, "drafts": "124/226", "pageins_mib": 7936, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 27.2, "prompt_n": 29, "prompt_ms": 2770.0, "predicted_n": 277, "predicted_ms": 24464.9, "tok_s": 11.3, "drafts": "131/246", "pageins_mib": 17920, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- needle 32000
+Traceback (most recent call last):
+  File "$HOME/shim/final_long.py", line 29, in <module>
+    r, w = ask(prompt, 160); tm = r["timings"]; ans = r["choices"][0]["message"]["content"] or ""
+  File "$HOME/shim/final_long.py", line 12, in ask
+    r = json.load(urllib.request.urlopen(urllib.request.Request(URL, body, {"Content-Type": "application/json"}), timeout=7200))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 523, in open
+    response = meth(req, response)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 632, in http_response
+    response = self.parent.error(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 561, in error
+    return self._call_chain(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 641, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+== done 2026-10-12T03:53:58Z

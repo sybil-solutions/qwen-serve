@@ -1,0 +1,33 @@
+--- $HOME/shim_pf500/tgcu_api.py	2026-10-11 20:06:25
++++ $HOME/shim/tgcu_api.py	2026-10-11 21:01:31
+@@ -34,7 +34,6 @@
+ 
+ def init() -> int:
+   global ctx
+-  if os.getenv("TGCU_SWITCH_US"): sys.setswitchinterval(float(os.environ["TGCU_SWITCH_US"]) * 1e-6)   # pf500: a thread spinning on a semaphore (or waiting in a USB call) hands the GIL over after this long, not 5 ms
+   # every start: PCIe power cycle + USB reset from fresh processes, before this process opens the device (a crashed run
+   # leaves the bridge with stale transfer state, and tinygrad's first failed attempt would keep the device open)
+   if ctx is None and not os.getenv("TGCU_NO_USB_RESET"): _recover()
+@@ -512,7 +511,22 @@
+   # dirty pages of a tracked mapped region: lands before the queued launches, after the submitted ones
+   if size: ctx.write_vram(dst, _mv(src, size) if ctx.ace.PIPE_MIN and size >= ctx.ace.PIPE_MIN else bytes(_mv(src, size)), ordered=False)
+   return 0
++
++def _hang_hook():   # TGCU_HANG_DUMP=1: the handshake words a spinning graph waits for, host copy vs device mirror
++  try:
++    print(f"[tgcu HANG] live_regions {len(live_regions)} pend_refs {len(pend_refs)} pending {len(ctx.pending)} ctrl_head {ctx.ctrl_head:#x} ref_sem_max {max(ref_sem.values(), default=0)}", file=sys.stderr, flush=True)
++    for h in sorted(live_regions)[:12]:
++      m = mapped.get(h)
++      if m is None: continue
++      n = min(m[1], 64)
++      host = struct.unpack(f"<{n // 4}I", bytes(_mv(h, n)))
++      try: dev = struct.unpack(f"<{n // 4}I", ctx.ace.d2h(m[0], n))
++      except Exception as e: dev = f"d2h failed: {e}"
++      print(f"[tgcu HANG] live region {h:#x} size {m[1]} host {host} dev {dev}", file=sys.stderr, flush=True)
++  except Exception as e: print(f"[tgcu HANG] hook failed: {e!r}", file=sys.stderr, flush=True)
+ 
++if os.getenv("TGCU_HANG_DUMP") == "1": tgcu.HANG_HOOK = _hang_hook
++
+ if os.getenv("TGCU_PROF"):
+   import tgcu_prof
+   tgcu_prof.install(globals(), tgcu)

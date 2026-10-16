@@ -1,0 +1,50 @@
+== final 2026-10-12T03:22:37Z cfg=$HOME/shim/strata-exl3-full512-final.json
+[strata] 2026-10-11 20:22:39 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7569 slots
+strata generate: expert cache 7569 slots, 13.13 GiB of VRAM; policy is
+strata generate: pre-filled 7569 of 7569 slots from the profile in 64.0 s (220 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.65 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 622 MiB of VRAM free with everything loaded
+READY
+-- prefill rows
+1500 chars 569 tokens 14566 ms 39.1 tok/s reply 'OK' wall 15.3
+10000 chars 3783 tokens 14564 ms 259.7 tok/s reply 'OK' wall 14.8
+10000 chars 3783 tokens 13542 ms 279.4 tok/s reply 'OK' wall 13.7
+21000 chars 6991 tokens 19214 ms 363.9 tok/s reply 'OK' wall 19.5
+24000 chars 7905 tokens 19705 ms 401.2 tok/s reply 'OK' wall 19.9
+25000 chars 8218 tokens 26389 ms 311.4 tok/s reply 'OK' wall 26.6
+55000 chars 17610 tokens 45960 ms 383.2 tok/s reply 'OK' wall 46.2
+-- exactness
+p1 5557 14062 ms "Strata is a technical documentation page detailing the engine's measured performance benchmarks, API usage, configuration settings, and internal mechanics for various hardware configurations.\n\n## Spee"
+p2 7672 21934 ms "This document details the setup, performance benchmarks, and technical implementation of the Strata engine's SYCL port for Intel Arc GPUs, highlighting its ability to run large models efficiently with"
+-- decode run 1
+{"i": 0, "wall_s": 34.9, "prompt_n": 29, "prompt_ms": 2151.7, "predicted_n": 300, "predicted_ms": 32752.8, "tok_s": 9.2, "drafts": "212/253", "pageins_mib": 35896, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 18.8, "prompt_n": 35, "prompt_ms": 2495.9, "predicted_n": 277, "predicted_ms": 16326.6, "tok_s": 17.0, "drafts": "147/247", "pageins_mib": 9245, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 24.3, "prompt_n": 29, "prompt_ms": 2745.6, "predicted_n": 273, "predicted_ms": 21567.0, "tok_s": 12.7, "drafts": "143/242", "pageins_mib": 15928, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- decode run 2
+{"i": 0, "wall_s": 35.8, "prompt_n": 29, "prompt_ms": 2117.8, "predicted_n": 300, "predicted_ms": 33663.4, "tok_s": 8.9, "drafts": "210/257", "pageins_mib": 36898, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 18.5, "prompt_n": 35, "prompt_ms": 2521.8, "predicted_n": 257, "predicted_ms": 15988.1, "tok_s": 16.1, "drafts": "130/236", "pageins_mib": 9016, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 27.8, "prompt_n": 29, "prompt_ms": 2732.4, "predicted_n": 268, "predicted_ms": 25011.7, "tok_s": 10.7, "drafts": "116/234", "pageins_mib": 17848, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- needle 32K
+Traceback (most recent call last):
+  File "$HOME/shim/final_long.py", line 29, in <module>
+    r, w = ask(prompt, 160); tm = r["timings"]; ans = r["choices"][0]["message"]["content"] or ""
+  File "$HOME/shim/final_long.py", line 12, in ask
+    r = json.load(urllib.request.urlopen(urllib.request.Request(URL, body, {"Content-Type": "application/json"}), timeout=7200))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 523, in open
+    response = meth(req, response)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 632, in http_response
+    response = self.parent.error(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 561, in error
+    return self._call_chain(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 641, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 503: Service Unavailable
+== done 2026-10-12T03:30:56Z

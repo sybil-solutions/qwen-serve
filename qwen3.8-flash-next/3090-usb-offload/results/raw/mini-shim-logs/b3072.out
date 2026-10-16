@@ -1,0 +1,15 @@
+== c3072 no-borrow decode 23:05:39
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 8725 slots
+strata serve: 741 MiB of VRAM free with everything loaded
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 8725 slots
+strata serve: 741 MiB of VRAM free with everything loaded
+strata decode timing: 91 windows, avg T 3.86, 3.30 tokens/window, 336.30 ms/window = verify 325.09 (GPU-reach wait 31.88 + per-layer host 287.56 [plan 0.08 actq 0.00 jobs 177.58 CPU 54.32] + stage 1.0
+strata decode timing: 124 windows, avg T 2.88, 1.97 tokens/window, 144.79 ms/window = verify 135.34 (GPU-reach wait 24.49 + per-layer host 106.32 [plan 0.06 actq 0.00 jobs 26.81 CPU 26.71] + stage 1.0
+strata decode timing: 162 windows, avg T 2.51, 1.85 tokens/window, 178.52 ms/window = verify 169.63 (GPU-reach wait 30.15 + per-layer host 134.96 [plan 0.05 actq 0.00 jobs 41.39 CPU 39.67] + stage 1.0
+== c3072 prefill rows 23:09:18
+{"chars": 800, "wall_s": 8.4, "prompt_n": 288, "prompt_ms": 7712.6, "prompt_tps": 37.3, "pageins_16k": 256939, "text": "OK"}
+{"chars": 1500, "wall_s": 12.6, "prompt_n": 569, "prompt_ms": 12275.5, "prompt_tps": 46.4, "pageins_16k": 636004, "text": "OK"}
+{"chars": 7000, "wall_s": 13.4, "prompt_n": 2909, "prompt_ms": 13071.4, "prompt_tps": 222.5, "pageins_16k": 627457, "text": "OK"}
+{"chars": 12000, "wall_s": 24.9, "prompt_n": 4472, "prompt_ms": 24603.2, "prompt_tps": 181.8, "pageins_16k": 1248082, "text": "OK"}
+{"chars": 22000, "wall_s": 37.5, "prompt_n": 7348, "prompt_ms": 37201.8, "prompt_tps": 197.5, "pageins_16k": 1869347, "text": "OK"}
+== finished 23:10:55

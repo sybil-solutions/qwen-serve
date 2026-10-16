@@ -1,0 +1,27 @@
+== W=15 2026-10-12T04:16:59Z
+$HOME/shim/ls_srv.sh:10: no such file or directory: $HOME/shim/pw15_engine.log
+[strata] 2026-10-11 21:17:02 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/w15/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/w15/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7640 slots
+strata generate: expert cache 7640 slots, 13.25 GiB of VRAM; policy is
+strata generate: pre-filled 7640 of 7640 slots from the profile in 65.4 s (217 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 5.06 GiB, pinned 0.00 GiB in 6 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 618 MiB of VRAM free with everything loaded
+READY
+-- decode run 1
+{"i": 0, "wall_s": 32.5, "prompt_n": 29, "prompt_ms": 3943.0, "predicted_n": 300, "predicted_ms": 28567.6, "tok_s": 10.5, "drafts": "211/265", "pageins_mib": 32475, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 20.3, "prompt_n": 35, "prompt_ms": 2982.2, "predicted_n": 249, "predicted_ms": 17327.4, "tok_s": 14.4, "drafts": "130/229", "pageins_mib": 13106, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 24.2, "prompt_n": 29, "prompt_ms": 2549.7, "predicted_n": 254, "predicted_ms": 21595.7, "tok_s": 11.8, "drafts": "114/235", "pageins_mib": 16294, "pageouts_mib": 0, "head": "Elias had not spoken to another soul in three months. The lighthouse stood like a solitary"}
+-- decode run 2
+{"i": 0, "wall_s": 30.9, "prompt_n": 29, "prompt_ms": 2302.3, "predicted_n": 300, "predicted_ms": 28553.9, "tok_s": 10.5, "drafts": "211/257", "pageins_mib": 32076, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 21.2, "prompt_n": 35, "prompt_ms": 3013.6, "predicted_n": 249, "predicted_ms": 18156.2, "tok_s": 13.7, "drafts": "130/227", "pageins_mib": 14087, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 26.2, "prompt_n": 29, "prompt_ms": 2559.2, "predicted_n": 281, "predicted_ms": 23612.5, "tok_s": 11.9, "drafts": "136/242", "pageins_mib": 18998, "pageouts_mib": 0, "head": "Elias lived where the land surrendered to the sea. His world was defined by the rhythmic s"}
+-- prefill rows
+10000 chars 3783 tokens 16201 ms 233.5 tok/s reply 'OK' wall 16.5
+10000 chars 3783 tokens 14121 ms 267.9 tok/s reply 'OK' wall 14.3
+25000 chars 8218 tokens 31479 ms 261.1 tok/s reply 'OK' wall 31.7
+25000 chars 8218 tokens 29775 ms 276.0 tok/s reply 'OK' wall 30.0
+55000 chars 17610 tokens 56317 ms 312.7 tok/s reply 'OK' wall 56.6
+== done 2026-10-12T04:24:07Z

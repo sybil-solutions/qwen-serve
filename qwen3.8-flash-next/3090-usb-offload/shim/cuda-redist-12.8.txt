@@ -1,0 +1,4 @@
+cuda_cudart/linux-sbsa/cuda_cudart-linux-sbsa-12.8.90-archive.tar.xz
+cuda_nvcc/linux-sbsa/cuda_nvcc-linux-sbsa-12.8.93-archive.tar.xz
+cuda_cccl/linux-sbsa/cuda_cccl-linux-sbsa-12.8.90-archive.tar.xz
+cuda_profiler_api/linux-sbsa/cuda_profiler_api-linux-sbsa-12.8.90-archive.tar.xz

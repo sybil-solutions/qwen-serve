@@ -1,0 +1,12 @@
+nocache=0 threads=1 chunks/blob=1: 1.95 GB/s, 0.95 ms/blob
+nocache=0 threads=4 chunks/blob=1: 2.48 GB/s, 0.75 ms/blob
+nocache=0 threads=7 chunks/blob=1: 2.37 GB/s, 0.79 ms/blob
+nocache=0 threads=7 chunks/blob=4: 2.25 GB/s, 0.83 ms/blob
+nocache=0 threads=8 chunks/blob=8: 2.12 GB/s, 0.88 ms/blob
+nocache=0 threads=16 chunks/blob=4: 2.13 GB/s, 0.88 ms/blob
+nocache=1 threads=1 chunks/blob=1: 1.92 GB/s, 0.97 ms/blob
+nocache=1 threads=4 chunks/blob=1: 2.34 GB/s, 0.80 ms/blob
+nocache=1 threads=7 chunks/blob=1: 2.32 GB/s, 0.80 ms/blob
+nocache=1 threads=7 chunks/blob=4: 2.26 GB/s, 0.82 ms/blob
+nocache=1 threads=8 chunks/blob=8: 2.05 GB/s, 0.91 ms/blob
+nocache=1 threads=16 chunks/blob=4: 2.33 GB/s, 0.80 ms/blob

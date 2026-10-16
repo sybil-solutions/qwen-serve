@@ -1,0 +1,29 @@
+--- prefill.cpp.orig	2026-10-11 18:27:34.361203240 -0400
++++ prefill.cpp	2026-10-11 18:40:51.831253279 -0400
+@@ -3937,6 +3937,7 @@
+                                                                  (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, mm);
+                             if (rc != 0) { err = "prefill: the Mac cold-expert lane failed at layer " + std::to_string(l) + " (" + std::to_string(rc) + ")"; return false; }
+                             const auto t3 = Clk::now();
++                            auto t3c = t3;
+                             if (pf_mac_y16()) {
+                                 for (int64_t i = 0; i < T * N; ++i) {
+                                     float v = m.mac_y32[i];
+@@ -3944,6 +3945,7 @@
+                                     const _Float16 hv = (_Float16) v;
+                                     std::memcpy(&m.mac_y16h[i], &hv, 2);
+                                 }
++                                t3c = Clk::now();
+                                 cudaMemcpyAsync(m.mac_y_dev, m.mac_y16h, (size_t) T * N * 2, cudaMemcpyHostToDevice, m.cs);
+                             } else {
+                                 cudaMemcpyAsync(m.mac_y_dev, m.mac_y32, (size_t) T * N * 4, cudaMemcpyHostToDevice, m.cs);
+@@ -3951,8 +3953,8 @@
+                             const auto t4 = Clk::now();
+                             if (pf_mac_stats()) {
+                                 auto ms = [](Clk::time_point a, Clk::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+-                                std::fprintf(stderr, "strata pf-mac: L%lld T=%lld cold=%zu pairs=%zu | x_fetch %.1f | conv+pairs %.1f | blobs(join) %.1f | metal %.1f | y_push %.1f ms\n",
+-                                             (long long) l, (long long) T, m.mac_cold.size(), eidx.size(), ms(t0, t1), ms(t1, t2), mm[0], mm[1], ms(t3, t4));
++                                std::fprintf(stderr, "strata pf-mac: L%lld T=%lld cold=%zu pairs=%zu | x_fetch %.1f | conv+pairs %.1f | blobs(join) %.1f | metal %.1f | y_conv %.1f | y_push %.1f ms\n",
++                                             (long long) l, (long long) T, m.mac_cold.size(), eidx.size(), ms(t0, t1), ms(t1, t2), mm[0], mm[1], ms(t3, t3c), ms(t3c, t4));
+                             }
+                         }
+                     }

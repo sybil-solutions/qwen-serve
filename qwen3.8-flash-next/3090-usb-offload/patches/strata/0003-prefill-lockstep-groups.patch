@@ -1,0 +1,690 @@
+diff --git a/include/strata/prefill/prefill.hpp b/include/strata/prefill/prefill.hpp
+index c1b0a91..1a6209f 100644
+--- a/include/strata/prefill/prefill.hpp
++++ b/include/strata/prefill/prefill.hpp
+@@ -98,6 +98,12 @@ public:
+     static uint64_t bytes_needed_owned(const core::ModelGeometry& g, const core::SessionState& ss, int64_t chunk);
+     static uint64_t bytes_needed_no_ring(const core::ModelGeometry& g, const core::SessionState& ss, int64_t chunk);
+ 
++    /// STRATA_PF_GROUP=G (EXL3 Mac cold-expert lane, STRATA_PF_MAC=1): G chunks run layer-major in lockstep (one SSD read of a layer's
++    /// cold blobs per group of G chunks).  group_size() is 1 when off; group_extra_bytes() is the device memory the G-1 extra chunks'
++    /// residual streams + QSA step tables cost (counted by bytes_needed / bytes_needed_owned too).
++    static int group_size();
++    static uint64_t group_extra_bytes(int64_t chunk);
++
+     /// The streamed ring's byte budget as a slot count for this pack (the measured slot count x Q2_0's blob, over
+     /// max_blob, never past ring_cap()):
+     /// what the auto chunk scan treats as a full ring.  A slot is one whole blob, so a pack with bigger blobs than
+diff --git a/src/prefill/prefill.cpp b/src/prefill/prefill.cpp
+index 05c1990..1d7e83d 100644
+--- a/src/prefill/prefill.cpp
++++ b/src/prefill/prefill.cpp
+@@ -51,6 +51,7 @@
+ #include <cstring>
+ #include <sys/mman.h>
+ #include <future>
++#include <limits>
+ #include <memory>
+ #include <mutex>
+ #include <thread>
+@@ -98,6 +99,11 @@ extern "C" int strata_pf_mac_init(void*, const int32_t*, int64_t);
+ extern "C" int strata_pf_mac_prefetch(void*, int, int, const int32_t*, int);
+ extern "C" void strata_pf_mac_release();
+ extern "C" int strata_pf_mac_compute(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, double*);
++extern "C" int strata_pf_mac_submit(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, void**, double*);
++extern "C" int strata_pf_mac_wait(void*);
++extern "C" int strata_pf_mac_submit_h(void*, int, int, const int32_t*, int, const uint16_t*, int, int64_t, const int32_t*, const int32_t*, const float*, uint16_t*, void**, double*);
++extern "C" int strata_pf_mac_half_ok();
++extern "C" int strata_pf_mac_nsets();
+ namespace strata::prefill {
+ namespace {
+ 
+@@ -173,6 +179,87 @@ inline bool pf_mac_stats() {
+     static const bool on = [] { const char* v = std::getenv("STRATA_PF_MAC_STATS"); return v != nullptr && std::atoi(v) != 0; }();
+     return on;
+ }
++// STRATA_PF_GROUP=G (>1, needs the Mac lane): G chunks of a prompt run layer-major in lockstep (Prefill::run_impl), so each layer's cold blobs are read once per
++// group; each extra chunk keeps its own residual stream R (T x D fp32) and QSA step table on the device.  STRATA_PF_GROUP_NOFUSE=1 also unfuses the layer-boundary
++// write+norm at G=1 (the exactness A/B: the group has to unfuse it, another chunk's turn comes between the write and the next norm).
++inline int pf_group_n() {
++    static const int v = [] {
++        const char* e = std::getenv("STRATA_PF_GROUP");
++        const int g = e ? std::atoi(e) : 1;
++        return pf_mac_enabled() ? std::clamp(g, 1, 8) : 1;
++    }();
++    return v;
++}
++inline bool pf_group_nofuse() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_GROUP_NOFUSE"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
++}
++// STRATA_PF_GROUP_PLAIN=1: the buffers of STRATA_PF_GROUP=G are booked (the cache keeps the same slot count) but the chunks run one after the other: the bitwise A/B of the lockstep
++inline bool pf_group_plain() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_GROUP_PLAIN"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
++}
++// STRATA_EXL3_METAL_JOBS (default 2; expert_source.cpp reads it too): Metal jobs in flight; STRATA_PF_LAG (default G-1, at most JOBS-1): how many chunks' Mac jobs
++// run behind the next chunks' attention + x download before their y rows are collected.
++inline int pf_jobs() {
++    static const int v = [] { const char* e = std::getenv("STRATA_EXL3_METAL_JOBS"); return std::clamp(e ? std::atoi(e) : 2, 2, 8); }();
++    return v;
++}
++inline int pf_lag_req(int g) {
++    const char* e = std::getenv("STRATA_PF_LAG");
++    return e ? std::atoi(e) : g - 1;
++}
++// STRATA_PF_SPLITF=1: a group's layer is three turns, F1 (the front's kernels, the router, the shared expert) / F2 (routing readback, the resident experts, the x download,
++// the Mac submit) / B (collect the job, push y, combine), ordered F1(i) B(i - lag) F2(i): the B turn's y push runs on the copy stream and the host waits for it there,
++// while the 3090 works through chunk i's front on the compute stream.
++inline bool pf_splitf() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_SPLITF"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
++}
++// One lockstep group: the chunks' threads take turns in a fixed order.  Steps of one chunk: 0 = setup, 1 + 2k = F of layer LB + k (attention, routing, the
++// resident experts, the x download, the Mac job's submit), 2 + 2k = B of that layer (collect the job, push y, combine, write back the residual),
++// 1 + 2 * (LE - LB) = tail.  The order is a software pipeline: B of chunk-layer i comes right after F of chunk-layer i + lag (i = layer * G + chunk), so a
++// Mac job runs behind the next chunks' F turns.  A turn runs on that chunk's own stack (its locals live across layers), so the layer body is the unchanged
++// single-chunk body; the device state that outlives a turn (the residual stream R, the QSA step table, the layer's resident partial sum / shared term /
++// hyper-connection injection) is per chunk, swapped in by `bind`.
++struct Lockstep {
++    Lockstep(int n_, int64_t nl, int lag, bool split_) : n(n_), split(split_) {
++        for (int c = 0; c < n; ++c) order.push_back({c, 0});
++        const int64_t total = nl * n;
++        for (int64_t i = 0; i < total; ++i) {
++            order.push_back({(int) (i % n), sF1(i / n)});
++            if (i >= lag) { const int64_t j = i - lag; order.push_back({(int) (j % n), sB(j / n)}); }
++            if (split) order.push_back({(int) (i % n), sF2(i / n)});
++        }
++        for (int64_t j = std::max<int64_t>(0, total - lag); j < total; ++j) order.push_back({(int) (j % n), sB(j / n)});
++        for (int c = 0; c < n; ++c) order.push_back({c, sTail(nl)});
++    }
++    int64_t sF1(int64_t k) const { return split ? 1 + 3 * k : 1 + 2 * k; }
++    int64_t sF2(int64_t k) const { return 2 + 3 * k; }                       // split only
++    int64_t sB(int64_t k) const { return split ? 3 + 3 * k : 2 + 2 * k; }
++    int64_t sTail(int64_t nl) const { return split ? 1 + 3 * nl : 1 + 2 * nl; }
++    const bool split;
++    int n;
++    std::vector<std::pair<int, int64_t>> order;   // (chunk, step)
++    std::mutex mu;
++    std::condition_variable cv;
++    size_t turn = 0;
++    bool aborted = false;
++    bool more = false;         // another lockstep group follows this one (its first layers' reads start behind this group's last layers)
++    bool wait(int64_t step, int j) {
++        std::unique_lock<std::mutex> lk(mu);
++        cv.wait(lk, [&] { return aborted || (turn < order.size() && order[turn].first == j && order[turn].second == step); });
++        return !aborted;
++    }
++    void done() {
++        { std::lock_guard<std::mutex> lk(mu); ++turn; }
++        cv.notify_all();
++    }
++    void abort() {
++        { std::lock_guard<std::mutex> lk(mu); aborted = true; }
++        cv.notify_all();
++    }
++};
+ // STRATA_PREFILL_CPU_SHARE (opt-in; set_cpu_pool): a chunk below stream_all_min() hands the decode CPU pool - idle
+ // while a prompt is read - the non-resident experts few of its tokens route to, instead of streaming them over PCIe.
+ // `auto`: the share measured, each layer's CPU time per expert and the GPU's per streamed expert (CUDA events around
+@@ -762,6 +849,16 @@ struct Prefill::Impl {
+     std::vector<float> mac_wh, mac_wt;
+     std::vector<int32_t> mac_cold, mac_eidx, mac_ridx, mac_idx_of, mac_next;
+     int64_t mac_pref_l = -1;   // the last layer whose cold experts' reads were queued
++    int64_t mac_ahead = 0;     // the first mac_ahead layers of the next group (or of this chunk, before its layer loop) have their reads queued already
++    std::vector<float*> R_x;          // STRATA_PF_GROUP: the extra chunks' residual streams [T x D] (chunk 1.. of a lockstep group)
++    std::vector<int32_t*> steps_x;    // ... and their QSA step tables
++    std::vector<std::vector<int32_t>> steps_hx;   // ... and their host copies (the attention reads its batches' n_bid from the host table)
++    std::vector<float*> S_x, SH_x, SG_x, INJ_x;   // per chunk of the group: the resident experts' partial sum, the shared-expert term, its gate, the hyper-connection injection (parked across the Mac job)
++    float* grp_zero = nullptr;                    // T x N zeros: the stand-in for the shared term / the Mac rows when the partial sum is formed
++    int32_t* grp_slot_id = nullptr;               // [T x K]: token t's first slot is row t of the parked partial sum, the other slots are out of range
++    float* grp_w_one = nullptr;                   // [T x K]: weight 1 for the first slot, 0 for the rest
++    bool grp_const_ok = false;
++    cudaEvent_t grp_ev_comb = nullptr, grp_ev_push = nullptr;   // split: the last combine that read mac_y_dev is done / the y push on the copy stream is done
+     std::vector<uint8_t> cpu_nact;
+     std::vector<kernels::cpu::ActQ> cpu_actq;   // a Q2_0 layer's activations (the pool's Q2_0 kernels read ActQ)
+     std::vector<kernels::cpu::ExpertJobMulti> cpu_jobs;
+@@ -1193,6 +1290,20 @@ bool Prefill::carve(size_t T, void* alloc) {
+     if (bf16x2_hc(m.f16_io)) { m.xn16_lo = o.take<uint16_t>(T * D, ok); m.lo16_lo = o.take<uint16_t>(T * LR, ok); }
+     if (bf16x2(m.f16_io)) m.mixed_bf_lo = o.take<uint16_t>(T * N, ok);
+     m.steps_dev = o.take<int32_t>(T * strata::kernels::kStepCount, ok);
++    m.R_x.clear(); m.steps_x.clear();
++    for (int j = 1; j < pf_group_n(); ++j) {   // STRATA_PF_GROUP: one more residual stream + step table per extra chunk of the lockstep group (bytes_needed counts them)
++        m.R_x.push_back(o.take<float>(T * D, ok));
++        m.steps_x.push_back(o.take<int32_t>(T * strata::kernels::kStepCount, ok));
++    }
++    m.S_x.clear(); m.SH_x.clear(); m.SG_x.clear(); m.INJ_x.clear();
++    m.grp_const_ok = false;
++    if (pf_group_n() > 1) {   // the group's parked per-chunk state, the zero block and the index constants of the final combine (bytes_needed counts them)
++        for (int j = 0; j < pf_group_n(); ++j) {
++            m.S_x.push_back(o.take<float>(T * N, ok)); m.SH_x.push_back(o.take<float>(T * N, ok));
++            m.SG_x.push_back(o.take<float>(T, ok)); m.INJ_x.push_back(o.take<float>(T * HC, ok));
++        }
++        m.grp_zero = o.take<float>(T * N, ok); m.grp_slot_id = o.take<int32_t>(T * K, ok); m.grp_w_one = o.take<float>(T * K, ok);
++    }
+     strata::kernels::QsaShapes s = strata::kernels::qsa_real_shapes();
+     s.n_head = g.n_head; s.n_head_kv = g.n_head_kv; s.head_dim = g.head_dim; s.idx_n_head = g.idx_q_heads;
+     s.idx_dim = g.idx_key_dim;
+@@ -1778,6 +1889,16 @@ void Prefill::set_ring_budget(int slots, int64_t small_max) {
+     g_ring_budget = slots > 0 ? slots : 0;
+     g_ring_small_max = small_max > 0 ? small_max : 0;
+ }
++int Prefill::group_size() { return pf_group_n(); }
++uint64_t Prefill::group_extra_bytes(int64_t chunk) {
++    const uint64_t T = (uint64_t) chunk;
++    const uint64_t g = (uint64_t) pf_group_n();
++    if (g <= 1) return 0;
++    const auto up2m = [](uint64_t b) { return (b + 2097151ull) / 2097152ull * 2097152ull; };
++    const uint64_t extra = up2m(T * (uint64_t) D * 4) + up2m(T * (uint64_t) strata::kernels::kStepCount * 4);   // one more residual stream + step table
++    const uint64_t park = 2 * up2m(T * (uint64_t) N * 4) + up2m(T * 4) + up2m(T * (uint64_t) HC * 4);          // parked partial sum, shared term, gate, injection
++    return (g - 1) * extra + g * park + up2m(T * (uint64_t) N * 4) + 2 * up2m(T * (uint64_t) K * 4);
++}
+ double Prefill::pinned_share() { return g_pinned_share; }
+ int64_t Prefill::stream_all_min_tokens() { return stream_all_min(); }
+ 
+@@ -1821,6 +1942,11 @@ uint64_t Prefill::bytes_needed_impl(const core::ModelGeometry& g, const core::Se
+     if (bf16x2_hc(f16_io)) { o.take<uint16_t>(T * D, ok); o.take<uint16_t>(T * LR, ok); }
+     if (bf16x2(f16_io)) o.take<uint16_t>(T * N, ok);
+     o.take<int32_t>(T * strata::kernels::kStepCount, ok);
++    for (int j = 1; j < pf_group_n(); ++j) { f(T * D); o.take<int32_t>(T * strata::kernels::kStepCount, ok); }   // the lockstep group's extra chunks (carve)
++    if (pf_group_n() > 1) {
++        for (int j = 0; j < pf_group_n(); ++j) { f(T * N); f(T * N); f(T); f(T * HC); }
++        f(T * N); o.take<int32_t>(T * K, ok); f(T * K);
++    }
+     strata::kernels::QsaShapes s = strata::kernels::qsa_real_shapes();
+     s.n_head = g.n_head; s.n_head_kv = g.n_head_kv; s.head_dim = g.head_dim; s.idx_n_head = g.idx_q_heads;
+     s.idx_dim = g.idx_key_dim;
+@@ -2041,6 +2167,14 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+     // this one reads; it streams and computes a share of this stage's experts then (set_stage_helper), in the
+     // place of a --peer-device peer, and gives the stage back its own buffers when the run ends
+     const bool single_chunk = hand_in_ == nullptr ? n <= m.T : single_chunk_;
++    // STRATA_PF_EVEN (default 1): a Mac-lane prompt of more than one chunk is cut into ceil(n / T) chunks of equal size (<= T) instead of T-token chunks and a short tail:
++    // the tail (8218 = 4 x 2048 + 26) was a separate plain pass that streams its cold experts over the link
++    const int64_t Tc = [&]() -> int64_t {
++        static const bool even = [] { const char* v = std::getenv("STRATA_PF_EVEN"); return v == nullptr || std::atoi(v) != 0; }();
++        if (!even || !pf_mac_enabled() || hand_in_ != nullptr || next_ != nullptr || n <= m.T) return m.T;
++        const int64_t k = (n + m.T - 1) / m.T;
++        return std::min<int64_t>(m.T, ((n + k - 1) / k + 15) & ~(int64_t) 15);
++    }();
+     const bool helped = single_chunk && bind_stage_helper(n);
+     if (helped) std::swap(m.pp, m.help_pp);
+     struct HelpScope {
+@@ -2076,8 +2210,8 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                            (ss.ple.w.key_bf16 != nullptr || ss.ple.w.key_native_data != nullptr) &&
+                            m.region_bytes / ((uint64_t) (3 * strata::kernels::NG_HC_DIM + N + 4) * 4 + (uint64_t) N * 2 + 4096) >= 64;
+     const int32_t prev0[2] = {prev[0], prev[1]};
+-    auto ple_gather = [&m, &ss, tokens, n, prev0](int64_t c0, int buf, std::string& e) -> bool {
+-        const int64_t T = std::min(m.T, n - c0);
++    auto ple_gather = [&m, &ss, tokens, n, prev0, Tc](int64_t c0, int buf, std::string& e) -> bool {
++        const int64_t T = std::min(Tc, n - c0);
+         auto at = [&](int64_t i) { return i < 2 ? prev0[i] : (int32_t) tokens[i - 2]; };   // prev0, then the tokens
+         int32_t pv[2] = {at(c0), at(c0 + 1)};
+         for (int64_t t = 0; t < T; ++t) {
+@@ -2093,10 +2227,25 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+     std::future<bool> ple_next;             // declared after everything it reads: an early return waits for it
+     int ple_buf = 0;
+ 
+-    for (int64_t c0 = 0; c0 < n; c0 += m.T) {
++    // STRATA_PF_GROUP: the chunk loop's body, callable on its own stack so a lockstep group of chunks can interleave at layer granularity (`ls` null: the plain loop)
++    struct BufRestore {
++        Impl& m; float* R; int32_t* st;
++        ~BufRestore() { m.R = R; m.steps_dev = st; }
++    } buf_restore{m, m.R, m.steps_dev};
++    auto chunk_body = [&](int64_t c0, Lockstep* ls, int lj) -> bool {
++        struct AbortOnFail { Lockstep* ls; bool ok = false; ~AbortOnFail() { if (ls && !ok) ls->abort(); } } lockstep_guard{ls};
++        auto bind = [&](int64_t pass) -> bool {   // wait for this chunk's turn, then point the shared working state at its own residual stream
++            if (ls == nullptr) return true;
++            if (!ls->wait(pass, lj)) return false;
++            m.R = lj == 0 ? buf_restore.R : m.R_x[(size_t) lj - 1];
++            m.steps_dev = lj == 0 ? buf_restore.st : m.steps_x[(size_t) lj - 1];
++            return true;
++        };
++        if (!bind(0)) return false;
++        std::vector<int32_t>& steps_h = (ls == nullptr || lj == 0) ? m.steps_host : m.steps_hx[(size_t) lj - 1];
+         if (should_stop && should_stop()) { err = "cancelled"; return false; }
+         if (std::getenv("STRATA_TRACE")) { std::fprintf(stderr, "strata trace: prompt chunk %lld of %lld\n", (long long) c0, (long long) n); std::fflush(stderr); }
+-        const int64_t T = std::min(m.T, n - c0), p0 = pos0 + c0;
++        const int64_t T = std::min(Tc, n - c0), p0 = pos0 + c0;
+         core::progress_at("reading the prompt (batched): preparing the chunk from token", p0);   // #251
+         ++stats_.chunks;
+         pt.mark(kPfStart, cs);
+@@ -2178,13 +2327,13 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                 err = std::string("prefill: the PLE rows' upload failed: ") + cudaGetErrorString(cudaGetLastError());
+                 return false;
+             }
+-            if (c0 + m.T < n) {
++            if (c0 + Tc < n) {
+                 // the other buffer's upload (a chunk ago) is done before the SSD thread refills it
+                 if (cudaEventSynchronize(m.ple_copied[ple_buf ^ 1]) != cudaSuccess) {
+                     err = std::string("prefill: the PLE rows' upload failed: ") + cudaGetErrorString(cudaGetLastError());
+                     return false;
+                 }
+-                ple_next = std::async(std::launch::async, [&ple_gather, &ple_next_err, c1 = c0 + m.T, b = ple_buf ^ 1] {
++                ple_next = std::async(std::launch::async, [&ple_gather, &ple_next_err, c1 = c0 + Tc, b = ple_buf ^ 1] {
+                     return ple_gather(c1, b, ple_next_err);
+                 });
+             }
+@@ -2194,8 +2343,8 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+         };
+         for (int64_t t = 0; t < T; ++t) { prev[0] = prev[1]; prev[1] = (int32_t) tokens[c0 + t]; }
+         // ---- the QSA step records of every position in the chunk
+-        for (int64_t t = 0; t < T; ++t) strata::kernels::qsa_step_fill(m.steps_host.data() + t * strata::kernels::kStepCount, p0 + t, s);
+-        cudaMemcpyAsync(m.steps_dev, m.steps_host.data(), (size_t) T * strata::kernels::kStepCount * 4,
++        for (int64_t t = 0; t < T; ++t) strata::kernels::qsa_step_fill(steps_h.data() + t * strata::kernels::kStepCount, p0 + t, s);
++        cudaMemcpyAsync(m.steps_dev, steps_h.data(), (size_t) T * strata::kernels::kStepCount * 4,
+                         cudaMemcpyHostToDevice, m.cs);
+ 
+         int64_t qsa_index = 0, gdn_index = 0;
+@@ -2242,6 +2391,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+             if (mac_per_set <= 0) std::fprintf(stderr, "strata pf-mac: lane NOT available (%d)\n", mac_per_set);
+         }
+         const bool mac_pf = mac_per_set > 0;
++        if (ls != nullptr && !mac_pf) { err = "prefill: STRATA_PF_GROUP needs the Mac cold-expert lane for every chunk of the group"; return false; }
+         if (mac_pf && m.mac_x16 == nullptr) {
+             const size_t nel = (size_t) m.T_max * N;
+             void* px = mmap(nullptr, (nel * 2 + 16383) & ~(size_t) 16383, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+@@ -2450,7 +2600,41 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                 std::fprintf(stderr, "strata pf-step: chunk from token %lld, layer %lld: %s took %.0f ms (%s / %s)\n",
+                              (long long) p0, (long long) layer, what, ms, cudaGetErrorString(a), cudaGetErrorString(b));
+         };
++        auto pf_queue_reads = [&](int64_t ll) {   // the reads of every cold expert of layer ll into slot set (ll & 1), started now, joined by that layer's first Mac submit
++            m.mac_next.clear();
++            for (int32_t e = 0; e < m.g->n_expert; ++e)
++                if (m.host_res[(size_t) ll * m.g->n_expert + e] < 0) m.mac_next.push_back(e);
++            strata_pf_mac_prefetch(m.src, (int) ll, (int) (ll & 1), m.mac_next.data(), (int) m.mac_next.size());
++            m.mac_pref_l = ll;
++        };
++        auto pf_push_y = [&](const void* src, size_t bytes) {   // the Mac rows to the card: plain on the compute stream, or (split) on the copy stream with the host waiting there
++            if (ls != nullptr && ls->split) {
++                cudaStreamWaitEvent(m.copy, m.grp_ev_comb, 0);   // the last combine that read mac_y_dev is done
++                cudaMemcpyAsync(m.mac_y_dev, src, bytes, cudaMemcpyHostToDevice, m.copy);
++                cudaEventRecord(m.grp_ev_push, m.copy);
++                cudaStreamSynchronize(m.copy);                    // the link is idle again before the next chunk's x comes down (the opposite direction must not overlap)
++                cudaStreamWaitEvent(m.cs, m.grp_ev_push, 0);
++            } else {
++                cudaMemcpyAsync(m.mac_y_dev, src, bytes, cudaMemcpyHostToDevice, m.cs);
++            }
++        };
++        if (mac_pf && T >= 512 && (ls == nullptr || lj == 0) && m.mac_ahead == 0 && std::getenv("STRATA_PF_NOEARLYQ") == nullptr) {   // the group's first reads start before layer 0's front (the SSD join of the first layers hides behind the setup + front)
++            for (int64_t ll = LB; ll < std::min<int64_t>(LE, LB + (ls != nullptr ? (int64_t) strata_pf_mac_nsets() : 2)); ++ll) pf_queue_reads(ll);
++            m.mac_ahead = std::min<int64_t>(LE - LB, ls != nullptr ? (int64_t) strata_pf_mac_nsets() : 2);
++        }
++        if (ls != nullptr) {   // this chunk's setup is done: its host staging buffers (token ids, QSA steps) are rewritten by the next chunk's setup, so the uploads land first
++            if (cudaStreamSynchronize(m.cs) != cudaSuccess) { err = std::string("prefill: ") + cudaGetErrorString(cudaGetLastError()); return false; }
++            ls->done();
++        }
+         for (int64_t l = LB; l < LE; ++l) {
++            if (ls != nullptr && !bind(ls->sF1(l - LB))) return false;   // F (F1 when split) turn of this layer
++            bool b_taken = false;                          // the layer's B turn was entered (a Mac job was parked)
++            float* inj_saved = nullptr;                    // split: m.inj while the B turn points it at the parked injection
++            const auto tl0 = std::chrono::steady_clock::now();   // this layer's F turn starts (the stats line's `front` runs until the cold experts' x is wanted)
++            static std::chrono::steady_clock::time_point pf_prev_tl0;   // (turns are serial: the wall period between two F turns = one chunk-layer of the whole pipeline)
++            const double st_period = std::chrono::duration<double, std::milli>(tl0 - pf_prev_tl0).count();
++            pf_prev_tl0 = tl0;
++            double st_issue = 0, st_gpuwait = 0, st_sub = 0;
+             core::progress_beat();   // the serve watchdog: a prompt chunk of 8192 tokens is still moving
+             if (l > LB) pf_step("reading the prompt (batched, step sync): the experts and the rest of layer", l - 1);
+             core::progress_at("reading the prompt (batched): layer", l, p0);   // #251: a stall names layer and chunk
+@@ -2715,7 +2899,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         const int64_t nb = std::min(m.sel_batch, T - t0);
+                         const int32_t* steps0 = m.steps_dev + t0 * strata::kernels::kStepCount;
+                         // C-1: the grid reaches the batch's last query's n_bid (they rise with the position)
+-                        const int64_t active = (int64_t) m.steps_host[(size_t) ((t0 + nb - 1) * strata::kernels::kStepCount +
++                        const int64_t active = (int64_t) steps_h[(size_t) ((t0 + nb - 1) * strata::kernels::kStepCount +
+                                                                                 strata::kernels::kStepNBid)] + 1;
+                         // the scores on tensor cores (3xTF32: FP32-level, not bitwise), below sm_80 the FP32 tiled kernel with STRATA_SELECT_SIMT=1;
+                         // STRATA_SELECT_OLD=1: the warp kernel
+@@ -2738,7 +2922,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         for (int64_t t0 = 0; t0 + 16 <= T; t0 += 16) {
+                             std::vector<int32_t> u;
+                             for (int64_t t = t0; t < t0 + 16; ++t) {
+-                                const int64_t w = m.steps_host[(size_t) (t * strata::kernels::kStepCount + strata::kernels::kStepWidth)];
++                                const int64_t w = steps_h[(size_t) (t * strata::kernels::kStepCount + strata::kernels::kStepWidth)];
+                                 sum_w += (double) w;
+                                 u.insert(u.end(), ids.begin() + t * m.cap, ids.begin() + t * m.cap + w);
+                             }
+@@ -2780,7 +2964,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         cudaMemcpyAsync(b.data(), ids16, b.size() * 4, cudaMemcpyDeviceToHost, m.cs);
+                         cudaStreamSynchronize(m.cs);
+                         for (int64_t t = 0; t < T; ++t) {
+-                            const int64_t w = m.steps_host[(size_t) (t * strata::kernels::kStepCount + strata::kernels::kStepWidth)];
++                            const int64_t w = steps_h[(size_t) (t * strata::kernels::kStepCount + strata::kernels::kStepWidth)];
+                             const int32_t *x = a.data() + t * m.cap, *y = b.data() + t * m.cap;
+                             int64_t i = 0, j = 0, c = 0;
+                             while (i < w && j < w) {
+@@ -2988,6 +3172,10 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                     bool cpu_arm = true;                  // auto: this layer may share (false: the arm without)
+                     int cpu_set = -1;                     // auto: the wall events' set, -1 when not measured
+                     bool cpu_cold = false;                // auto: one-time costs in the window (no reading)
++                    if (ls != nullptr && ls->split) {   // F1 ends here (the front's kernels, the router and the shared expert are launched): the B turn of an earlier chunk runs while the GPU works
++                        ls->done();
++                        if (!bind(ls->sF2(l - LB))) return false;
++                    }
+                     if (fused_l) {
+                         if (static bool said = false; !said) {
+                             said = true;
+@@ -3062,19 +3250,22 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                             bool any_cold = false;
+                             for (int32_t e = 0; e < m.g->n_expert && !any_cold; ++e) any_cold = m.host_res[(size_t) l * m.g->n_expert + e] < 0;
+                             if (any_cold) { cudaMemcpyAsync(m.mac_x16, m.mixed_h, (size_t) T * N * 2, cudaMemcpyDeviceToHost, m.cs); mac_x_issued = true; }
+-                            if (any_cold && T >= 512) {   // the reads of every cold expert of this layer (if not queued yet) and the next one, queued now: the SSD works through the whole layer, not only behind the Metal call
+-                                for (int64_t ll = l; ll <= l + 1 && ll < LE; ++ll) {
+-                                    if (ll == m.mac_pref_l) continue;
++                            if (any_cold && T >= 512 && (ls == nullptr || (lj == 0 && l == LB))) {   // (a lockstep group queues the first two layers' reads here; layer l + 2's are queued once every job of layer l is done)
++                                const int64_t ahead = ls != nullptr ? (int64_t) strata_pf_mac_nsets() - 1 : 1;   // a group starts with every slot set reading
++                                for (int64_t ll = l; ll <= l + ahead && ll < LE; ++ll) {
++                                    if (ll == m.mac_pref_l || ll < LB + m.mac_ahead) continue;
+                                     m.mac_next.clear();
+                                     for (int32_t e = 0; e < m.g->n_expert; ++e)
+                                         if (m.host_res[(size_t) ll * m.g->n_expert + e] < 0) m.mac_next.push_back(e);
+                                     strata_pf_mac_prefetch(m.src, (int) ll, (int) (ll & 1), m.mac_next.data(), (int) m.mac_next.size());
+                                     m.mac_pref_l = ll;
+                                 }
++                                m.mac_ahead = 0;
+                             }
+                         }
+                         const bool cpu_maybe = pool_hold.held && !stream_all && m.src != nullptr &&
+                                                lay.native && !m.pp && !lay.fmt.empty();
++                        if (ls != nullptr && cpu_maybe) { err = "prefill: STRATA_PF_GROUP does not run with the CPU expert share (set STRATA_PREFILL_CPU_SHARE=0)"; return false; }
+                         // auto shares only while the layers that share cost less per non-resident expert than their
+                         // neighbours that do not.  #1282 (RX 7900 GRE + 5700X3D): every share lost, auto's 0.47 by
+                         // 4.5%, the host's issue time per streamed expert rising 107 -> 200 us with the CPU busy -
+@@ -3113,7 +3304,9 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         // work), not the host: the watchdog's report says so (only its text changes)
+                         core::progress_at("reading the prompt (batched): waiting for the GPU (attention, router) at layer",
+                                           l, p0);
++                        const auto tsy0 = std::chrono::steady_clock::now();
+                         cudaStreamSynchronize(m.cs);
++                        { const auto tsy1 = std::chrono::steady_clock::now(); st_issue = std::chrono::duration<double, std::milli>(tsy0 - tl0).count(); st_gpuwait = std::chrono::duration<double, std::milli>(tsy1 - tsy0).count(); }
+                         core::progress_at("reading the prompt (batched): layer", l, p0);
+                         if (mac_x_issued) cudaMemcpyAsync(m.mac_wh.data(), m.w, (size_t) T * K * 4, cudaMemcpyDeviceToHost, m.cs);   // the routing weights (80 KB: a plain download)
+                         if (m.cpu_pend) {   // the measured share: the last CPU-sharing layer's GPU time is final now
+@@ -3916,29 +4109,93 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                             return false;
+                         if (mac_layer) {   // STRATA_PF_MAC: this layer's routed experts that are not in VRAM, on the Apple GPU (expert_source.cpp PfMac)
+                             using Clk = std::chrono::steady_clock;
++                            const bool half_path = pf_mac_y16() && strata_pf_mac_half_ok() != 0;   // x16 rows in, fp16 rows out: no host widening, no host clamp/cast (the lane's own GPU does both)
+                             const auto t0 = Clk::now();
+                             { volatile uint8_t t = ((volatile uint8_t*) m.mac_x16)[0]; (void) t; }   // the first touch downloads the whole lazy range over the link
+                             const auto t1 = Clk::now();
+-                            { const _Float16* h = (const _Float16*) m.mac_x16; float* d = m.mac_x32; for (int64_t i = 0; i < T * N; ++i) d[i] = (float) h[i]; }
++                            if (!half_path) { const _Float16* h = (const _Float16*) m.mac_x16; float* d = m.mac_x32; for (int64_t i = 0; i < T * N; ++i) d[i] = (float) h[i]; }
+                             std::vector<int32_t>& eidx = m.mac_eidx;
+                             std::vector<int32_t>& ridx = m.mac_ridx;
+                             std::vector<float>& wt = m.mac_wt;
+                             eidx.clear(); ridx.clear(); wt.clear();
+                             m.mac_idx_of.assign((size_t) m.g->n_expert, -1);
+                             for (size_t q = 0; q < m.mac_cold.size(); ++q) m.mac_idx_of[(size_t) m.mac_cold[q]] = (int32_t) q;
++                            int64_t st_rows = 0, st_prev_row = -1;
+                             for (int64_t i = 0; i < T * K; ++i) {
+                                 const int32_t dq = m.mac_idx_of[(size_t) ids_h[(size_t) i]];
+                                 if (dq < 0) continue;
+                                 eidx.push_back(dq); ridx.push_back((int32_t) (i / K)); wt.push_back(m.mac_wh[(size_t) i]);
++                                if (i / K != st_prev_row) { st_prev_row = i / K; ++st_rows; }
+                             }
+                             const auto t2 = Clk::now();
+                             double mm[2] = {0, 0};
+-                            const int rc = strata_pf_mac_compute(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x32, (int) T,
+-                                                                 (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, mm);
+-                            if (rc != 0) { err = "prefill: the Mac cold-expert lane failed at layer " + std::to_string(l) + " (" + std::to_string(rc) + ")"; return false; }
+-                            const auto t3 = Clk::now();
++                            auto t3 = Clk::now();
+                             auto t3c = t3;
+-                            if (pf_mac_y16()) {
++                            auto t4 = t3;
++                            if (ls == nullptr) {
++                                int rc = 0;
++                                if (half_path) {
++                                    void* job1 = nullptr;
++                                    rc = strata_pf_mac_submit_h(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x16, (int) T,
++                                                                (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y16h, &job1, mm);
++                                    if (rc == 0) { const auto tw1 = Clk::now(); rc = strata_pf_mac_wait(job1); mm[1] = std::chrono::duration<double, std::milli>(Clk::now() - tw1).count(); }
++                                } else {
++                                    rc = strata_pf_mac_compute(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x32, (int) T,
++                                                               (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, mm);
++                                }
++                                if (rc != 0) { err = "prefill: the Mac cold-expert lane failed at layer " + std::to_string(l) + " (" + std::to_string(rc) + ")"; return false; }
++                                t3 = Clk::now();
++                                t3c = t3;
++                            } else {
++                                // lockstep: park this layer's resident partial sum (the combine kernel with a zero shared term and zero Mac rows gives (s + 0) + 0 = s), the shared
++                                // term, its gate and the injection, start the Mac job, and give the turn to the next chunk; the B turn collects the job
++                                const int64_t rows_res = T * K - rows_cpu;
++                                const size_t sj = (size_t) lj;
++                                if (pf_mac_y16())
++                                    moe_combine_peer16(m.Dm, m.slot_dev, m.w, m.grp_zero, m.sg, (const uint16_t*) m.grp_zero, rows_res, m.S_x[sj], T, m.cs);
++                                else
++                                    moe_combine_peer(m.Dm, m.slot_dev, m.w, m.grp_zero, m.sg, m.grp_zero, rows_res, m.S_x[sj], T, m.cs);
++                                cudaMemcpyAsync(m.SH_x[sj], m.shared, (size_t) T * N * 4, cudaMemcpyDeviceToDevice, m.cs);
++                                cudaMemcpyAsync(m.SG_x[sj], m.sg, (size_t) T * 4, cudaMemcpyDeviceToDevice, m.cs);
++                                cudaMemcpyAsync(m.INJ_x[sj], m.inj, (size_t) T * HC * 4, cudaMemcpyDeviceToDevice, m.cs);
++                                void* job = nullptr;
++                                const auto tsb0 = Clk::now();
++                                const int rcs = half_path
++                                    ? strata_pf_mac_submit_h(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x16, (int) T,
++                                                             (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y16h, &job, mm)
++                                    : strata_pf_mac_submit(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x32, (int) T,
++                                                           (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, &job, mm);
++                                st_sub = std::chrono::duration<double, std::milli>(Clk::now() - tsb0).count();
++                                if (rcs != 0) { err = "prefill: the Mac cold-expert lane failed to start at layer " + std::to_string(l) + " (" + std::to_string(rcs) + ")"; return false; }
++                                ls->done();
++                                if (!bind(ls->sB(l - LB))) { strata_pf_mac_wait(job); return false; }   // B turn of this layer (the job's slot is released either way)
++                                b_taken = true;
++                                if (ls->split) { inj_saved = m.inj; m.inj = m.INJ_x[sj]; }   // (the next chunk's front already wrote m.inj: B reads the parked injection in place)
++                                else cudaMemcpyAsync(m.inj, m.INJ_x[sj], (size_t) T * HC * 4, cudaMemcpyDeviceToDevice, m.cs);
++                                const auto tw = Clk::now();
++                                const int rcw = strata_pf_mac_wait(job);
++                                if (rcw != 0) { err = "prefill: the Mac cold-expert lane failed at layer " + std::to_string(l) + " (" + std::to_string(rcw) + ")"; return false; }
++                                t3 = Clk::now();
++                                t3c = t3;
++                                mm[1] = std::chrono::duration<double, std::milli>(t3 - tw).count();   // (the wait for the job: what the next chunks' turns did not cover)
++                            }
++                            if (half_path) {   // the lane already returned fp16 rows (clamp + round on the GPU): push them as they are
++                                if (std::getenv("STRATA_PF_MAC_HCHK") != nullptr) {   // check: the fp32 lane + the host's clamp/cast must give the same bits
++                                    { const _Float16* h = (const _Float16*) m.mac_x16; float* d = m.mac_x32; for (int64_t i = 0; i < T * N; ++i) d[i] = (float) h[i]; }
++                                    const int rc = strata_pf_mac_compute(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x32, (int) T,
++                                                                         (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, nullptr);
++                                    int64_t bad = 0;
++                                    for (int64_t i = 0; rc == 0 && i < T * N; ++i) {
++                                        float v = m.mac_y32[i];
++                                        v = v > 65504.0f ? 65504.0f : (v < -65504.0f ? -65504.0f : v);
++                                        const _Float16 hv = (_Float16) v;
++                                        uint16_t hb; std::memcpy(&hb, &hv, 2);
++                                        bad += hb != m.mac_y16h[i];
++                                    }
++                                    std::fprintf(stderr, "strata pf-mac: HCHK L%lld c%d rc %d mismatching fp16 words %lld of %lld\n", (long long) l, lj, rc, (long long) bad, (long long) (T * N));
++                                }
++                                pf_push_y(m.mac_y16h, (size_t) T * N * 2);
++                            } else if (pf_mac_y16()) {
+                                 for (int64_t i = 0; i < T * N; ++i) {
+                                     float v = m.mac_y32[i];
+                                     v = v > 65504.0f ? 65504.0f : (v < -65504.0f ? -65504.0f : v);
+@@ -3946,15 +4203,15 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                                     std::memcpy(&m.mac_y16h[i], &hv, 2);
+                                 }
+                                 t3c = Clk::now();
+-                                cudaMemcpyAsync(m.mac_y_dev, m.mac_y16h, (size_t) T * N * 2, cudaMemcpyHostToDevice, m.cs);
++                                pf_push_y(m.mac_y16h, (size_t) T * N * 2);
+                             } else {
+-                                cudaMemcpyAsync(m.mac_y_dev, m.mac_y32, (size_t) T * N * 4, cudaMemcpyHostToDevice, m.cs);
++                                pf_push_y(m.mac_y32, (size_t) T * N * 4);
+                             }
+-                            const auto t4 = Clk::now();
++                            t4 = Clk::now();
+                             if (pf_mac_stats()) {
+                                 auto ms = [](Clk::time_point a, Clk::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
+-                                std::fprintf(stderr, "strata pf-mac: L%lld T=%lld cold=%zu pairs=%zu | x_fetch %.1f | conv+pairs %.1f | blobs(join) %.1f | metal %.1f | y_conv %.1f | y_push %.1f ms\n",
+-                                             (long long) l, (long long) T, m.mac_cold.size(), eidx.size(), ms(t0, t1), ms(t1, t2), mm[0], mm[1], ms(t3, t3c), ms(t3c, t4));
++                                std::fprintf(stderr, "strata pf-mac: L%lld c%d T=%lld cold=%zu pairs=%zu rows=%lld | front %.1f | x_fetch %.1f | conv+pairs %.1f | blobs(join) %.1f | metal(%s) %.1f | y_conv %.1f | y_push %.1f | issue %.1f gpuwait %.1f submit %.1f period %.1f ms\n",
++                                             (long long) l, lj, (long long) T, m.mac_cold.size(), eidx.size(), (long long) st_rows, ms(tl0, t0), ms(t0, t1), ms(t1, t2), mm[0], ls ? "wait" : "call", mm[1], ms(t3, t3c), ms(t3c, t4), st_issue, st_gpuwait, st_sub, st_period);
+                             }
+                         }
+                     }
+@@ -3987,7 +4244,13 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         if (!m.pp->p2p && !m.pp->sums)
+                             copy_f32_wide(m.Dm + (size_t) m.pp->back_at * N, m.pp->host_rows, m.pp->back_rows * N, m.cs);
+                     }
+-                    if (mac_layer && pf_mac_y16())
++                    if (mac_layer && ls != nullptr) {   // lockstep: the parked partial sum + the Mac rows (the same fmaf chain: slot t -> row t with weight 1 gives the parked sum back)
++                        if (pf_mac_y16())
++                            moe_combine_peer16(m.S_x[(size_t) lj], m.grp_slot_id, m.grp_w_one, m.SH_x[(size_t) lj], m.SG_x[(size_t) lj], (const uint16_t*) m.mac_y_dev, T, m.bo, T, m.cs);
++                        else
++                            moe_combine_peer(m.S_x[(size_t) lj], m.grp_slot_id, m.grp_w_one, m.SH_x[(size_t) lj], m.SG_x[(size_t) lj], m.mac_y_dev, T, m.bo, T, m.cs);
++                        if (ls->split) cudaEventRecord(m.grp_ev_comb, m.cs);
++                    } else if (mac_layer && pf_mac_y16())
+                         moe_combine_peer16(m.Dm, m.slot_dev, m.w, m.shared, m.sg, (const uint16_t*) m.mac_y_dev, T * K - rows_cpu, m.bo, T, m.cs);
+                     else if (mac_layer)
+                         moe_combine_peer(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.mac_y_dev, T * K - rows_cpu, m.bo, T, m.cs);
+@@ -3997,7 +4260,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                         moe_combine_peer(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.pp->host_sum, m.pp->back_at, m.bo, T, m.cs);
+                     else
+                         moe_combine(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.bo, T, m.cs);
+-                    if (mac_layer && pf_mac_stats()) {   // the GPU's tail behind the hand-off: resident experts + combine still running when the y rows are in
++                    if (mac_layer && pf_mac_stats() && ls == nullptr) {   // the GPU's tail behind the hand-off: resident experts + combine still running when the y rows are in (no sync inside a lockstep group)
+                         const auto tg = std::chrono::steady_clock::now();
+                         cudaStreamSynchronize(m.cs);
+                         std::fprintf(stderr, "strata pf-mac: L%lld gpu_tail %.1f ms\n", (long long) l,
+@@ -4039,7 +4302,8 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                 const bool cv_fused = steered && cvec_fuse() && !gr_unfused() && nl < LE && !(nl == 1 && ple_on) &&
+                                       strata::kernels::cvec().n_embd == N && strata::kernels::cvec().hc == HC &&
+                                       strata::kernels::cvec_tables(&cv_dir, &cv_s, &cv_on);
+-                const bool fuse = !gr_unfused() && nl < LE && !(half == 1 && nl == 1 && ple_on) && (!steered || cv_fused);
++                const bool fuse = !gr_unfused() && nl < LE && !(half == 1 && nl == 1 && ple_on) && (!steered || cv_fused) &&
++                                  !(half == 1 && (ls != nullptr || pf_group_nofuse()));   // (a lockstep group: another chunk's turn comes between this write and the next layer's norm)
+                 const core::WeightRef* wnn = nullptr;
+                 if (fuse) {
+                     const core::LayerView vn(*m.wt, nl);
+@@ -4093,7 +4357,22 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                 if (steered && !cv_fused)   // --control-vector-scaled
+                     strata::kernels::cvec_apply(m.R, l, T, D, nullptr, 0, nullptr, 0, false, m.cs);
+             }
++            if (ls != nullptr) {
++                if (!b_taken) { ls->done(); if (!bind(ls->sB(l - LB))) return false; }   // no Mac job in this layer: the B turn is empty
++                if (inj_saved != nullptr) { m.inj = inj_saved; inj_saved = nullptr; }
++                if (lj == ls->n - 1 && mac_pf && m.T >= 512) {   // every chunk's job of layer l is collected: its slot set is free for layer l + nsets
++                    const int64_t nsets_l = strata_pf_mac_nsets();
++                    if (l + nsets_l < LE) pf_queue_reads(l + nsets_l);
++                    else if (ls->more) {   // the next group's first layers: the same sets, read behind this group's last layers (no group starts with an SSD join)
++                        const int64_t ll = LB + (l + nsets_l - LE);
++                        pf_queue_reads(ll);
++                        m.mac_ahead = ll - LB + 1;
++                    }
++                }
++                ls->done();
++            }
+         }
++        if (ls != nullptr && !bind(ls->sTail(LE - LB))) return false;   // the tail (draft layer, on_chunk) of every chunk runs in chunk order after the last layer
+         if (!ple_land()) return false;   // a stage that ends before layer 1: the rows land anyway, the next gather starts
+         if (issuer.joinable()) {
+             issuer.join();
+@@ -4123,7 +4402,8 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+                 return next_->run_impl(tokens + c0, T, p0, next_err_);
+             });
+             hand_buf_ ^= 1;
+-            continue;   // the last stage reports the chunk (on_chunk)
++            lockstep_guard.ok = true;
++            return true;   // the last stage reports the chunk (on_chunk)
+         }
+         if (const char* dump = std::getenv("STRATA_PREFILL_DUMP_R")) {   // debug: the final residuals, every 64th
+             cudaStreamSynchronize(m.cs);                                  // position (A/B quality of this path)
+@@ -4172,6 +4452,77 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+             host_sync_ms += std::chrono::duration<double, std::milli>(toc2 - toc).count();
+             host_chunk_ms += ms_since(toc2);
+         }
++        if (ls != nullptr) ls->done();
++        lockstep_guard.ok = true;
++        return true;
++    };
++    {
++        const strata::kernels::cpu::ExpertLayout& lay_g = strata::kernels::cpu::expert_layout();
++        const int G = pf_group_n();
++        const bool lockstep_ok = G > 1 && !pf_group_plain() && pf_mac_enabled() && lay_g.exl3 && m.host_res != nullptr && m.cache != nullptr && m.src != nullptr &&
++                                 m.mac_y_dev != nullptr && hand_in_ == nullptr && next_ == nullptr && !m.pp && !kv_prefetch && m.T <= 16384 &&
++                                 (int) m.R_x.size() + 1 >= G && (int) m.steps_x.size() + 1 >= G && (int) m.S_x.size() >= G && m.grp_zero != nullptr;
++        if (lockstep_ok) {   // the group's extra chunks' host step tables
++            m.steps_hx.resize((size_t) G - 1);
++            for (auto& v : m.steps_hx) v.resize((size_t) m.T * strata::kernels::kStepCount);
++        }
++        if (lockstep_ok && !m.grp_const_ok) {   // the constants of the group's final combine (see Impl::grp_slot_id): zeros, token t -> row t of the parked sum with weight 1
++            std::vector<int32_t> sid((size_t) m.T * K, std::numeric_limits<int32_t>::max());
++            std::vector<float> w1((size_t) m.T * K, 0.0f);
++            for (int64_t t = 0; t < m.T; ++t) { sid[(size_t) (t * K)] = (int32_t) t; w1[(size_t) (t * K)] = 1.0f; }
++            if (cudaMemset(m.grp_zero, 0, (size_t) m.T * N * 4) != cudaSuccess ||
++                cudaMemcpy(m.grp_slot_id, sid.data(), sid.size() * 4, cudaMemcpyHostToDevice) != cudaSuccess ||
++                cudaMemcpy(m.grp_w_one, w1.data(), w1.size() * 4, cudaMemcpyHostToDevice) != cudaSuccess) {
++                err = std::string("prefill: the lockstep group's constants: ") + cudaGetErrorString(cudaGetLastError());
++                return false;
++            }
++            if (pf_splitf() && (m.grp_ev_comb == nullptr || m.grp_ev_push == nullptr) &&
++                (cudaEventCreateWithFlags(&m.grp_ev_comb, cudaEventDisableTiming) != cudaSuccess || cudaEventCreateWithFlags(&m.grp_ev_push, cudaEventDisableTiming) != cudaSuccess)) {
++                err = "prefill: the lockstep group's events";
++                return false;
++            }
++            if (m.grp_ev_comb != nullptr) cudaEventRecord(m.grp_ev_comb, m.cs);   // (so the first push's wait is on a recorded event)
++            m.grp_const_ok = true;
++        }
++        for (int64_t g0 = 0; g0 < n;) {
++            // the chunks from here on that are big enough for the lane (a last chunk below pf_mac_min() is not), split into as even groups of at most G as possible
++            // (4 chunks at G=3 run as 2 + 2, not 3 + 1: a lone chunk pays a whole layer's SSD read by itself)
++            int gn = 1;
++            if (lockstep_ok) {
++                int64_t e_left = 0;
++                for (int64_t c = g0; c < n && std::min<int64_t>(Tc, n - c) >= pf_mac_min(); c += Tc) ++e_left;
++                if (e_left >= 2) {
++                    const int64_t groups_left = (e_left + G - 1) / G;
++                    gn = (int) ((e_left + groups_left - 1) / groups_left);
++                }
++            }
++            if (gn == 1) {
++                if (!chunk_body(g0, nullptr, 0)) return false;
++                g0 += Tc;
++                continue;
++            }
++            const bool split = pf_splitf() && gn >= 2;   // F1 / F2 / B turns (the y push on the copy stream behind the next chunk's front): lag >= 1, Mac jobs in flight = lag
++            const int lag = split ? std::clamp(pf_lag_req(G), 1, std::min(gn - 1, pf_jobs()))
++                                  : std::clamp(pf_lag_req(G), 0, std::min(gn - 1, pf_jobs() - 1));   // Mac jobs in flight = lag + 1 (lag when split) <= the Metal context's job slots
++            Lockstep ls(gn, LE - LB, lag, split);
++            {   // another lockstep group follows (>= 2 lane-sized chunks left)?  Its first layers' reads start behind this group's last layers
++                int64_t rem = 0;
++                for (int64_t c = g0 + (int64_t) gn * Tc; c < n && std::min<int64_t>(Tc, n - c) >= pf_mac_min(); c += Tc) ++rem;
++                ls.more = rem >= 2 && std::getenv("STRATA_PF_NOXGROUP") == nullptr;
++            }
++            std::vector<char> ok((size_t) gn, 0);
++            std::vector<std::thread> th;
++            for (int j = 1; j < gn; ++j)
++                th.emplace_back([&, j] {
++                    const core::OnDevice od(m.device);
++                    ok[(size_t) j] = chunk_body(g0 + (int64_t) j * Tc, &ls, j) ? 1 : 0;
++                });
++            ok[0] = chunk_body(g0, &ls, 0) ? 1 : 0;
++            for (std::thread& t : th) t.join();
++            for (int j = 0; j < gn; ++j)
++                if (!ok[(size_t) j]) { if (err.empty()) err = "prefill: a chunk of the lockstep group failed"; return false; }
++            g0 += (int64_t) gn * Tc;
++        }
+     }
+     // Do not drain the successor here. This is the overlap: an intermediate
+     // stage can return while later GPUs are still processing the previous chunk.
+@@ -4187,7 +4538,7 @@ bool Prefill::run_impl(const int64_t* tokens, int64_t n, int64_t pos0, std::stri
+             for (float v : h) { c += !std::isfinite(v); if (std::isfinite(v)) mx = std::max(mx, (double) std::fabs(v)); }
+             std::fprintf(stderr, " %lld non-finite (max |x| %.3g)", (long long) c, mx);
+         };
+-        const int64_t last = (n - 1) % m.T;
++        const int64_t last = (n - 1) % Tc;
+         std::fprintf(stderr, "strata dbg: prompt end: last residual row");
+         bad(m.R + last * D, D);
+         if (ss.ple.ready()) { std::fprintf(stderr, "; PLE history"); bad(ss.ple.hist, (int64_t) strata::kernels::NG_HIST * strata::kernels::NG_HC_DIM); }
+diff --git a/src/program/generate.cpp b/src/program/generate.cpp
+index 9f82563..092596f 100644
+--- a/src/program/generate.cpp
++++ b/src/program/generate.cpp
+@@ -4329,7 +4329,8 @@ int main(int argc, char** argv) {
+     auto owned_prefill_mib = [&]() -> int64_t {
+         if (!(o.prefill_chunk > 0 && !pf_borrow)) return 0;
+         static const bool exact = [] { const char* v = std::getenv("STRATA_OWNED_PRICE"); return v != nullptr && std::string(v) == "exact"; }();
+-        if (!exact) return 160 + (o.prefill_chunk * 680) / 1024;
++        // STRATA_PF_GROUP: the lockstep group's extra residual streams (Prefill::group_extra_bytes; 0 without the group) are booked too
++        if (!exact) return 160 + (o.prefill_chunk * 680) / 1024 + (int64_t) (strata::prefill::Prefill::group_extra_bytes(o.prefill_chunk) >> 20);
+         const int64_t mib = ((int64_t) strata::prefill::Prefill::bytes_needed_owned(g, ss, o.prefill_chunk) + (1 << 20) - 1) >> 20;
+         std::fprintf(stderr, "strata generate: STRATA_OWNED_PRICE=exact: the prompt path's own buffers for a %lld-token chunk: %lld MiB (the 0.1.39 rule: %lld MiB)\n",
+                      (long long) o.prefill_chunk, (long long) mib, (long long) (160 + (o.prefill_chunk * 680) / 1024));

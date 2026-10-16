@@ -1,0 +1,41 @@
+```python
+def is_prime(n: int) -> bool:
+    """
+    Check whether a given integer n is a prime number.
+    
+    A prime number is a natural number greater than 1 that has no positive
+    divisors other than 1 and itself.
+    
+    Args:
+        n: The integer to check for primality.
+        
+    Returns:
+        True if n is prime, False otherwise.
+    """
+    # Numbers less than or equal to 1 are not prime
+    if n <= 1:
+        return False
+    
+    # 2 and 3 are prime
+    if n <= 3:
+        return True
+    
+    # Eliminate even numbers and multiples of 3
+    if n % 2 == 0 or n % 3 == 0:
+        return False
+    
+    # Check for factors up to the square root of n
+    # All primes greater than 3 are of the form 6k ± 1
+    i = 5
+    while i * i <= n:
+        if n % i == 0 or n % (i + 2) == 0:
+            return False
+        i += 6
+    
+    return True
+```
+
+**Brief Explanation:**
+
+1. **Base cases**: Numbers ≤ 1 are not prime. 2 and 3 are prime.
+2. **Quick elimination**: If `n

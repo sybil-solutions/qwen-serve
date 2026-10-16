@@ -1,0 +1,38 @@
+== WF3_h05 2026-10-11T19:58:43Z cfg=$HOME/shim/strata-exl3-full512-e-h05.json
+STRATA_DECODE_TIMING=1
+[strata] 2026-10-11 12:58:45 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 9108 slots
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 5.33 GiB, pinned 0.00 GiB in 6 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: 622 MiB of VRAM free with everything loaded
+READY
+ready after 173 s
+{"i": 0, "wall_s": 37.3, "prompt_n": 29, "prompt_ms": 3475.6, "predicted_n": 300, "predicted_ms": 33809.1, "tok_s": 8.9, "drafts": "213/256", "pageins_mib": 20347, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 22.4, "prompt_n": 35, "prompt_ms": 2477.3, "predicted_n": 248, "predicted_ms": 19904.1, "tok_s": 12.5, "drafts": "130/219", "pageins_mib": 4651, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 36.0, "prompt_n": 29, "prompt_ms": 3031.7, "predicted_n": 274, "predicted_ms": 32943.7, "tok_s": 8.3, "drafts": "131/265", "pageins_mib": 8266, "pageouts_mib": 1, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- engine log
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 9108 slots
+strata generate: expert cache 9108 slots, 15.80 GiB of VRAM; policy is
+strata generate: pre-filled 9108 of 9108 slots from the profile in 106.8 s (159 MB/s); slot 0 verified
+strata generate: resident RAM mode: 5.33 GiB of experts in RAM (locked), 9108 in the GPU cache; adaptive swaps off
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 622 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (622 MiB of VRAM free)
+strata verify: capturing the 4-token window (620 MiB of VRAM free)
+strata verify: capturing the 1-token window (504 MiB of VRAM free)
+strata verify: capturing the 2-token window (502 MiB of VRAM free)
+strata verify: capturing the 3-token window (500 MiB of VRAM free)
+strata decode timing: 90 windows, avg T 3.84, 3.33 tokens/window, 375.66 ms/window = verify 364.31 (GPU-reach wait 34.75 + per-layer host 323.76 [plan 0.08 actq 0.00 jobs 161.92 CPU 105.59] + stage 1.07) + commit/emit 1.07 + draft 10.27; per layer-window: CPU experts 13.97 (20.64 entries), VRAM hits 17.73, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 3476 ms (8.3 tok/s), 300 generated in 33809 ms (8.9 tok/s), drafts accepted 213 of 256, 1 checkpoints
+strata serve: decode expert cache hit rate: 46.2% (76593 hits / 165750 lookups)
+strata serve: resident RAM: 5.33 GiB of experts in RAM, 0 exchanged with the VRAM tier, 48437 blob reads from the file
+strata decode timing: 119 windows, avg T 2.84, 2.08 tokens/window, 167.26 ms/window = verify 157.81 (GPU-reach wait 34.22 + per-layer host 119.05 [plan 0.05 actq 0.00 jobs 24.67 CPU 40.46] + stage 1.06) + commit/emit 0.82 + draft 8.63; per layer-window: CPU experts 5.21 (7.37 entries), VRAM hits 20.54, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2477 ms (14.1 tok/s), 248 generated in 19904 ms (12.5 tok/s), drafts accepted 130 of 219, 1 checkpoints
+strata serve: decode expert cache hit rate: 73.6% (117344 hits / 159430 lookups)
+strata serve: resident RAM: 5.33 GiB of experts in RAM, 0 exchanged with the VRAM tier, 67762 blob reads from the file
+strata decode timing: 144 windows, avg T 2.84, 1.90 tokens/window, 228.78 ms/window = verify 219.18 (GPU-reach wait 32.42 + per-layer host 182.03 [plan 0.06 actq 0.00 jobs 48.05 CPU 79.30] + stage 1.05) + commit/emit 0.85 + draft 8.74; per layer-window: CPU experts 10.78 (17.69 entries), VRAM hits 10.63, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 3032 ms (9.6 tok/s), 274 generated in 32944 ms (8.3 tok/s), drafts accepted 131 of 265, 1 checkpoints
+strata serve: decode expert cache hit rate: 37.5% (73499 hits / 195770 lookups)
+strata serve: resident RAM: 5.33 GiB of experts in RAM, 0 exchanged with the VRAM tier, 131594 blob reads from the file
+== done 2026-10-11T20:03:12Z

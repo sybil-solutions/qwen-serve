@@ -1,0 +1,27 @@
+# One command to the reproducible build bundle (./out):   docker compose run --rm build
+# Model fetch + sha256 verification (large, explicit):    docker compose --profile fetch run --rm fetch all     (or: experts | dense)
+# Then, on the Mac:                                       ./run.sh
+services:
+  build:
+    build:
+      context: .
+      target: builder
+      args:
+        BUILD_ROOT: /Users/sero    # embedded in exl3_strata.fatbin; do not change if you want the deployed hash
+        JOBS: "4"                  # parallel nvcc jobs for the Strata engine (each can take 1-2 GB; the Docker VM needs the RAM)
+    platform: linux/arm64
+    image: qwen38fn-build:local
+    volumes:
+      - ./out:/out
+  fetch:
+    profiles: ["fetch"]
+    build:
+      context: .
+      target: fetcher
+    platform: linux/arm64
+    image: qwen38fn-fetch:local
+    environment:
+      - EXPERT_LAYERS
+      - DENSE_MATCH
+    volumes:
+      - ./out/models:/models

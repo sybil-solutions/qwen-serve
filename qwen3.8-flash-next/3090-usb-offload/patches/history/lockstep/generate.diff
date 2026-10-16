@@ -1,0 +1,12 @@
+--- strata/src/program/generate.cpp	2026-10-11 12:45:41
++++ strata-lockstep/src/program/generate.cpp	2026-10-11 16:27:00
+@@ -4329,7 +4329,8 @@
+     auto owned_prefill_mib = [&]() -> int64_t {
+         if (!(o.prefill_chunk > 0 && !pf_borrow)) return 0;
+         static const bool exact = [] { const char* v = std::getenv("STRATA_OWNED_PRICE"); return v != nullptr && std::string(v) == "exact"; }();
+-        if (!exact) return 160 + (o.prefill_chunk * 680) / 1024;
++        // STRATA_PF_GROUP: the lockstep group's extra residual streams (Prefill::group_extra_bytes; 0 without the group) are booked too
++        if (!exact) return 160 + (o.prefill_chunk * 680) / 1024 + (int64_t) (strata::prefill::Prefill::group_extra_bytes(o.prefill_chunk) >> 20);
+         const int64_t mib = ((int64_t) strata::prefill::Prefill::bytes_needed_owned(g, ss, o.prefill_chunk) + (1 << 20) - 1) >> 20;
+         std::fprintf(stderr, "strata generate: STRATA_OWNED_PRICE=exact: the prompt path's own buffers for a %lld-token chunk: %lld MiB (the 0.1.39 rule: %lld MiB)\n",
+                      (long long) o.prefill_chunk, (long long) mib, (long long) (160 + (o.prefill_chunk * 680) / 1024));

@@ -1,0 +1,31 @@
+--- tgcu_api.py.orig	2026-10-11 18:40:56.046486000 -0400
++++ tgcu_api.py	2026-10-11 18:41:19.834318247 -0400
+@@ -68,7 +68,8 @@
+   return total - used - (1 << 30), total
+ 
+ def h2d(dst:int, src:int, size:int) -> int:
+-  if size: flush(); ctx.write_vram(dst, bytes(_mv(src, size)))
++  # the pipelined path (>= PIPE_MIN) reads the host buffer in place: the call is synchronous, a copy of 10 MB is 3 ms
++  if size: flush(); ctx.write_vram(dst, _mv(src, size) if ctx.ace.PIPE_MIN and size >= ctx.ace.PIPE_MIN else bytes(_mv(src, size)))
+   return 0
+ def d2h(dst:int, src:int, size:int) -> int:
+   if size: flush(); _mv(dst, size)[:] = ctx.read_vram(src, size)
+@@ -100,7 +101,8 @@
+ def lazy_submit() -> int: flush(); return ctx.sem_value
+ def lazy_fetch(dst:int, src:int, n:int, sem:int) -> int:
+   if _completed() < sem: ctx._wait(sem)
+-  _mv(dst, n)[:] = ctx.ace.d2h(src, n)
++  if ctx.ace.PIPE_MIN and n >= ctx.ace.PIPE_MIN: ctx.ace.d2h_into(src, n, _mv(dst, n))
++  else: _mv(dst, n)[:] = ctx.ace.d2h(src, n)
+   return 0
+ ref_sem: dict[int, int] = {}         # region -> the submission whose launches last read it
+ def _order_host_writes(refs:set[int]):
+@@ -507,7 +509,7 @@
+ 
+ def h2d_raw(dst:int, src:int, size:int) -> int:
+   # dirty pages of a tracked mapped region: lands before the queued launches, after the submitted ones
+-  if size: ctx.write_vram(dst, bytes(_mv(src, size)), ordered=False)
++  if size: ctx.write_vram(dst, _mv(src, size) if ctx.ace.PIPE_MIN and size >= ctx.ace.PIPE_MIN else bytes(_mv(src, size)), ordered=False)
+   return 0
+ 
+ if os.getenv("TGCU_PROF"):

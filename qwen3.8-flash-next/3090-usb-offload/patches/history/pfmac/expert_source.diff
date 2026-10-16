@@ -1,0 +1,261 @@
+--- orig-1011-pfmac/expert_source.cpp	2026-10-11 14:01:49
++++ $HOME/strata/src/core/expert_source.cpp	2026-10-11 14:55:55
+@@ -1551,7 +1551,152 @@
+     }
+     return true;
+ }
++// STRATA_PF_MAC=1 (prefill.cpp): the prompt path's cold EXL3 experts (not VRAM-resident) are computed on the Apple GPU with exl3m_moe_prefill instead of
++// streaming over the USB link.  Blobs: the locked RAM tier is read in place (registered NoCopy); everything else is pread whole (parallel threads) into
++// two sets of registered, locked slots that alternate by layer, so the reads of layer l+1 overlap layer l's link hand-off and Metal call.  The reads run
++// through FileExpertSource::prefetch (PfMac::mode) because only that class can see the file mapping and the RAM tier.
++struct PfReader {   // a FIFO of whole-blob reads shared by the worker threads; begin() queues a set's reads, finish(set) joins them (the caller helps)
++    struct Job { uint64_t off, len; uint8_t* dst; int set; };
++    std::mutex mu;
++    std::condition_variable cv, done_cv;
++    std::vector<std::thread> th;
++    std::deque<Job> q;
++    int fd = -1;
++    int pending[2] = {0, 0};
++    std::atomic<int64_t> short_reads{0};
++    bool quit = false;
++    void run1(const Job& j) {
++        uint64_t got = 0;
++        while (got < j.len) {
++            const ssize_t r = ::pread(fd, j.dst + got, (size_t) (j.len - got), (off_t) (j.off + got));
++            if (r <= 0) break;
++            got += (uint64_t) r;
++        }
++        if (got < j.len) short_reads.fetch_add(1);
++        std::lock_guard<std::mutex> lk(mu);
++        if (--pending[j.set] == 0) done_cv.notify_all();
++    }
++    void start(int nt) {
++        for (int t = 0; t < nt; ++t)
++            th.emplace_back([this] {
++                for (;;) {
++                    Job j;
++                    {
++                        std::unique_lock<std::mutex> lk(mu);
++                        cv.wait(lk, [&] { return quit || !q.empty(); });
++                        if (quit) return;
++                        j = q.front(); q.pop_front();
++                    }
++                    run1(j);
++                }
++            });
++    }
++    void begin(int fd_, int set, const std::vector<std::pair<uint64_t, uint64_t>>& j, const std::vector<uint8_t*>& d) {   // queue, do not wait
++        if (j.empty()) return;
++        {
++            std::lock_guard<std::mutex> lk(mu);
++            fd = fd_;
++            for (size_t i = 0; i < j.size(); ++i) q.push_back({j[i].first, j[i].second, d[i], set});
++            pending[set] += (int) j.size();
++        }
++        cv.notify_all();
++    }
++    void finish(int set) {
++        std::unique_lock<std::mutex> lk(mu);
++        done_cv.wait(lk, [&] { return pending[set] == 0; });
++    }
++};
++struct PfMac {
++    bool inited = false;
++    int mode = 0;                        // 0: off; 1: begin the reads of (layer, set); 2: resolve the blob pointers (join the reads); 3: size + allocate the slot sets
++    int set = 0;
++    const int32_t* host_res = nullptr;   // mode 3: [layer][expert] -> VRAM slot or -1
++    int64_t host_layers = 0;
++    uint8_t* slots = nullptr;
++    size_t stride = 0;
++    int per_set = 0, used[2] = {0, 0}, tag[2] = {-1, -1};
++    std::vector<int16_t> slot_of[2];     // expert -> slot within the set (-1: none)
++    const void* ptrs[512] = {};
++    bool bad = false;
++    int fd = -1;
++    PfReader rd;
++    int64_t ondemand = 0, tier_hits = 0, nreads = 0, warned = 0;
++    int (*pfill)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*) = nullptr;
++    int (*unreg)(void*, const void*) = nullptr;
++};
++PfMac& pfm() { static PfMac p; return p; }
+ }  // namespace
++// prefill.cpp (STRATA_PF_MAC): size + allocate the slot sets from the placement (per_set = the most non-tier cold experts of any layer) and register
++// them with the Metal lane.  Returns per_set (>0), or <0.  The mapping is read through src->prefetch, which sees mode 3.
++extern "C" int strata_pf_mac_init(void* srcv, const int32_t* host_res, int64_t host_layers) {
++    MetalLane& M = ml();
++    PfMac& P = pfm();
++    if (P.slots != nullptr) return P.per_set;
++    if (!ml_init(M)) return -1;
++    P.pfill = (int (*)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*)) dlsym(M.lib, "exl3m_moe_prefill");
++    P.unreg = (int (*)(void*, const void*)) dlsym(M.lib, "exl3m_unregister");
++    if (P.pfill == nullptr || P.unreg == nullptr) { std::fprintf(stderr, "strata pf-mac: exl3m_moe_prefill / exl3m_unregister missing in the Metal lib\n"); return -2; }
++    P.host_res = host_res; P.host_layers = host_layers; P.mode = 3;
++    static_cast<ExpertSource*>(srcv)->prefetch(0, (const int64_t*) nullptr, 0);
++    P.mode = 0;
++    if (P.per_set <= 0 || P.slots == nullptr) { std::fprintf(stderr, "strata pf-mac: slot sets not allocated (the expert source is not the experts.bin file source?)\n"); return -3; }
++    if (!P.inited) {
++        int nt = 8;
++        if (const char* e = std::getenv("STRATA_PF_MAC_THREADS")) nt = std::max(1, std::atoi(e));
++        P.rd.start(nt);
++        P.inited = true;
++    }
++    return P.per_set;
++}
++// after a prompt: join the reads, unregister and free the slot sets (1.3 GB of locked RAM that decode needs as file cache)
++extern "C" void strata_pf_mac_release() {
++    PfMac& P = pfm();
++    if (P.slots == nullptr) return;
++    P.rd.finish(0); P.rd.finish(1);
++    P.unreg(ml().ctx, P.slots);
++    const size_t bytes = (size_t) 2 * (size_t) P.per_set * P.stride;
++    munlock(P.slots, bytes);
++    munmap(P.slots, bytes);
++    P.slots = nullptr;
++    P.tag[0] = P.tag[1] = -1;
++}
++// the reads of every cold expert of `layer` (n ids) into the set's slots, started now and joined by the compute call
++extern "C" int strata_pf_mac_prefetch(void* srcv, int layer, int set, const int32_t* experts, int n) {
++    PfMac& P = pfm();
++    if (P.slots == nullptr || n <= 0) return 0;
++    static thread_local std::vector<int64_t> e64;
++    e64.assign(experts, experts + n);
++    P.mode = 1; P.set = set;
++    static_cast<ExpertSource*>(srcv)->prefetch(layer, e64.data(), (int64_t) e64.size());
++    P.mode = 0;
++    return P.bad ? -1 : 0;
++}
++// y[n_tok x 2560] = sum over the pairs of w * expert(x[row]) on the Apple GPU; ms[0] = time to resolve the blobs (joins the reads), ms[1] = Metal call
++extern "C" int strata_pf_mac_compute(void* srcv, int layer, int set, const int32_t* experts, int nd, const float* x, int n_tok, int64_t np,
++                                     const int32_t* eidx, const int32_t* ridx, const float* wt, float* y, double* ms) {
++    PfMac& P = pfm();
++    MetalLane& M = ml();
++    if (P.slots == nullptr || nd <= 0 || nd > 512) return -1;
++    static thread_local std::vector<int64_t> e64;
++    e64.assign(experts, experts + nd);
++    const auto t0 = std::chrono::steady_clock::now();
++    P.mode = 2; P.set = set;
++    static_cast<ExpertSource*>(srcv)->prefetch(layer, e64.data(), (int64_t) e64.size());
++    P.mode = 0;
++    if (P.bad) return -2;
++    const auto t1 = std::chrono::steady_clock::now();
++    const int rc = P.pfill(M.ctx, x, n_tok, np, eidx, ridx, wt, P.ptrs, y);
++    const auto t2 = std::chrono::steady_clock::now();
++    if (rc != 0) {
++        if (P.warned++ < 5) std::fprintf(stderr, "strata pf-mac: exl3m_moe_prefill failed (%d): %s\n", rc, M.lasterr());
++        return -3;
++    }
++    if (ms != nullptr) {
++        ms[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
++        ms[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
++    }
++    return 0;
++}
+ // verify.cpp: arm the weights + output rows of the next pool call; after it, ask whether the Metal lane produced the reduced rows
+ extern "C" void strata_exl3_metal_arm(const float* w, float* y) {
+     if (!ml_enabled()) return;
+@@ -1615,6 +1760,10 @@
+ }
+ #else
+ extern "C" void strata_exl3_metal_arm(const float*, float*) {}
++extern "C" int strata_pf_mac_init(void*, const int32_t*, int64_t) { return -1; }
++extern "C" void strata_pf_mac_release() {}
++extern "C" int strata_pf_mac_prefetch(void*, int, int, const int32_t*, int) { return -1; }
++extern "C" int strata_pf_mac_compute(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, double*) { return -1; }
+ extern "C" int strata_exl3_metal_taken() { return 0; }
+ static int exl3_metal_lane(ExpertDispatch&, const float*, const int32_t*, int64_t, int64_t, const int32_t*, double&, double&) { return 0; }
+ #endif
+@@ -1633,6 +1782,94 @@
+ 
+ void FileExpertSource::prefetch(int64_t layer, const int64_t* experts, int64_t n) {
+ #if defined(__APPLE__)
++    if (PfMac& P = pfm(); P.mode != 0) {   // STRATA_PF_MAC: the prompt path's cold-expert lane (see PfMac)
++        MetalLane& M = ml();
++        auto in_tier = [&](size_t index) { return complement_ready_ && resident_blob(index) != nullptr; };
++        auto reg_tier = [&] {
++            if (complement_ready_ && !M.comp_reg) {
++                M.comp_reg = true;
++                const int64_t rr = M.reg(M.ctx, complement_host_, (size_t) complement_bytes_);
++                std::fprintf(stderr, "strata exl3-metal: locked RAM tier registered: %lld bytes\n", (long long) rr);
++            }
++        };
++        if (P.mode == 3) {   // size the sets once, (re)allocate + register them when they are not live (the lane frees them after every prompt: locked RAM is the decode's file cache)
++            if (P.per_set == 0) {
++                int best = 0;
++                const int64_t nl = std::min<int64_t>(n_layers_, P.host_layers);
++                for (int64_t l = 0; l < nl; ++l) {
++                    int c = 0;
++                    for (int64_t e = 0; e < n_expert_; ++e) {
++                        const size_t index = (size_t) l * (size_t) n_expert_ + (size_t) e;
++                        if (P.host_res[index] < 0 && !in_tier(index)) ++c;
++                    }
++                    best = std::max(best, c);
++                }
++                P.stride = M.stride;
++                P.per_set = std::min(best, 512);
++                reg_tier();
++                if (P.fd < 0 && !paths_.empty()) {
++                    P.fd = ::open(paths_.front().c_str(), O_RDONLY | O_CLOEXEC);
++                    if (P.fd >= 0 && std::getenv("STRATA_PF_MAC_NOCACHE") != nullptr && std::atoi(std::getenv("STRATA_PF_MAC_NOCACHE")) != 0) (void) fcntl(P.fd, F_NOCACHE, 1);
++                }
++            }
++            if (P.per_set > 0 && P.slots == nullptr && base_ != nullptr && P.fd >= 0) {
++                const size_t bytes = (size_t) 2 * (size_t) P.per_set * P.stride;
++                void* sp = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
++                if (sp == MAP_FAILED) return;
++                std::memset(sp, 0, bytes);
++                const int lk = mlock(sp, bytes);
++                if (M.reg(M.ctx, sp, bytes) <= 0) { munmap(sp, bytes); return; }
++                P.slots = (uint8_t*) sp;
++                P.tag[0] = P.tag[1] = -1;
++                static bool said = false;
++                if (!said) { said = true; std::fprintf(stderr, "strata pf-mac: 2 sets x %d slots (%.2f GB, mlock %s) registered per prompt, fd %d\n", P.per_set, (double) bytes / 1e9, lk == 0 ? "ok" : "FAILED", P.fd); }
++            }
++            return;
++        }
++        const int s = P.set;
++        P.bad = false;
++        if (P.fd < 0 || layer < 0 || layer >= n_layers_) { P.bad = true; return; }
++        std::vector<std::pair<uint64_t, uint64_t>> jobs;
++        std::vector<uint8_t*> dsts;
++        auto reset = [&] { P.slot_of[s].assign((size_t) n_expert_, (int16_t) -1); P.used[s] = 0; P.tag[s] = (int) layer; };
++        auto assign = [&] {
++            for (int64_t i = 0; i < n; ++i) {
++                const int64_t e = experts[i];
++                if (e < 0 || e >= n_expert_) { P.bad = true; continue; }
++                const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) e;
++                if (in_tier(index) || P.slot_of[s][(size_t) e] >= 0) continue;
++                const uint8_t* p = mapped_blob(layer, e);
++                if (p == nullptr || P.used[s] >= P.per_set) { P.bad = true; continue; }
++                const int sl = P.used[s]++;
++                P.slot_of[s][(size_t) e] = (int16_t) sl;
++                jobs.emplace_back((uint64_t) (p - base_), layer_blob_bytes_[(size_t) layer]);
++                dsts.push_back(P.slots + ((size_t) s * (size_t) P.per_set + (size_t) sl) * P.stride);
++            }
++        };
++        if (P.mode == 1) {   // start the reads of every given expert (all of the layer's cold ones), do not wait
++            P.rd.finish(s);
++            reset();
++            assign();
++            P.nreads += (int64_t) jobs.size();
++            P.rd.begin(P.fd, s, jobs, dsts);
++            return;
++        }
++        // mode 2: join the reads in flight, read what the prefetch did not cover, hand out the pointers
++        P.rd.finish(s);
++        if (P.tag[s] != (int) layer) reset();
++        assign();
++        if (!jobs.empty()) { ++P.ondemand; P.nreads += (int64_t) jobs.size(); P.rd.begin(P.fd, s, jobs, dsts); P.rd.finish(s); }
++        if (P.rd.short_reads.load() != 0) { P.bad = true; return; }
++        for (int64_t i = 0; i < n && i < 512; ++i) {
++            const int64_t e = experts[i];
++            const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) e;
++            P.ptrs[i] = nullptr;
++            if (in_tier(index)) { P.ptrs[i] = resident_blob(index); ++P.tier_hits; }
++            else if (P.slot_of[s][(size_t) e] >= 0) P.ptrs[i] = P.slots + ((size_t) s * (size_t) P.per_set + (size_t) P.slot_of[s][(size_t) e]) * P.stride;
++            if (P.ptrs[i] == nullptr) P.bad = true;
++        }
++        return;
++    }
+     if (ml().gather) {   // STRATA_EXL3_METAL: hand out in-place blob pointers for the Metal lane (resident tier) or whole-blob preads into its registered slots
+         MetalLane& M = ml();
+         static thread_local std::vector<std::pair<uint64_t, uint64_t>> gjobs;

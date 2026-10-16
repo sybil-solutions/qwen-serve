@@ -1,0 +1,64 @@
+== e1 2026-10-12T05:33:21Z cfg=$HOME/shim/e1.json
+[strata] 2026-10-11 22:33:23 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 0.2 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 64.2 s (215 MB/s); slot 0 verified
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 716 MiB of VRAM free with everything loaded
+READY
+-- mem at READY
+Pages free:                                     3848.
+Pages wired down:                              71101.
+File-backed pages:                            842189.
+Pages stored in compressor:                   235959.
+Pages occupied by compressor:                  53649.
+13564048
+-- decode run 1
+{"i": 0, "wall_s": 28.1, "prompt_n": 29, "prompt_ms": 4409.3, "predicted_n": 300, "predicted_ms": 23623.2, "tok_s": 12.7, "drafts": "212/255", "pageins_mib": 25988, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 16.9, "prompt_n": 35, "prompt_ms": 2788.5, "predicted_n": 248, "predicted_ms": 14152.8, "tok_s": 17.5, "drafts": "129/224", "pageins_mib": 9357, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 23.7, "prompt_n": 29, "prompt_ms": 2794.3, "predicted_n": 300, "predicted_ms": 20939.8, "tok_s": 14.3, "drafts": "129/260", "pageins_mib": 12401, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- decode run 2
+{"i": 0, "wall_s": 26.5, "prompt_n": 29, "prompt_ms": 2568.0, "predicted_n": 300, "predicted_ms": 23876.7, "tok_s": 12.6, "drafts": "210/256", "pageins_mib": 25256, "pageouts_mib": 1, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 16.8, "prompt_n": 35, "prompt_ms": 2782.1, "predicted_n": 231, "predicted_ms": 14057.2, "tok_s": 16.4, "drafts": "118/225", "pageins_mib": 9396, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 22.5, "prompt_n": 29, "prompt_ms": 2741.6, "predicted_n": 287, "predicted_ms": 19734.7, "tok_s": 14.5, "drafts": "132/271", "pageins_mib": 12103, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- mem after
+Pages free:                                     4442.
+Pages wired down:                             524789.
+File-backed pages:                            357874.
+Pages stored in compressor:                   209663.
+Pages occupied by compressor:                  46322.
+Pageouts:                                      73817.
+7637232
+-- engine log
+strata exl3-metal: 21000 calls, 11.75 experts/call, gather 1.494 ms, metal 0.316 ms per call, 0 fallbacks, tier 2331, slot LRU 201967 hits / 42456 misses (3800 slots), split jobs 12191, early-A jobs 20911
+strata exl3-metal: 22000 calls, 11.98 experts/call, gather 1.528 ms, metal 0.321 ms per call, 0 fallbacks, tier 2434, slot LRU 215406 hits / 45639 misses (3800 slots), split jobs 13074, early-A jobs 21911
+strata exl3-metal: 23000 calls, 12.21 experts/call, gather 1.617 ms, metal 0.328 ms per call, 0 fallbacks, tier 2535, slot LRU 228017 hits / 50184 misses (3800 slots), split jobs 13958, early-A jobs 22904
+strata decode timing: 93 windows, avg T 3.75, 3.23 tokens/window, 256.74 ms/window = verify 245.62 (GPU-reach wait 28.87 + per-layer host 212.13 [plan 0.08 actq 0.00 jobs 130.12 CPU 20.36] + stage 1.06) + commit/emit 1.03 + draft 10.09; per layer-window: CPU experts 15.68 (23.22 entries), VRAM hits 14.28, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2568 ms (11.3 tok/s), 300 generated in 23877 ms (12.6 tok/s), drafts accepted 210 of 256, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 63730 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata serve: suffix drafts: 5 windows, 8 of 9 drafts accepted
+strata exl3-metal: 24000 calls, 12.19 experts/call, gather 1.681 ms, metal 0.332 ms per call, 0 fallbacks, tier 2686, slot LRU 235749 hits / 54114 misses (3800 slots), split jobs 14793, early-A jobs 23902
+strata exl3-metal: 25000 calls, 11.99 experts/call, gather 1.642 ms, metal 0.328 ms per call, 0 fallbacks, tier 2813, slot LRU 241757 hits / 55101 misses (3800 slots), split jobs 15276, early-A jobs 24896
+strata exl3-metal: 26000 calls, 11.81 experts/call, gather 1.596 ms, metal 0.325 ms per call, 0 fallbacks, tier 2933, slot LRU 248441 hits / 55766 misses (3800 slots), split jobs 15689, early-A jobs 25894
+strata exl3-metal: 27000 calls, 11.61 experts/call, gather 1.550 ms, metal 0.318 ms per call, 0 fallbacks, tier 3060, slot LRU 254222 hits / 56318 misses (3800 slots), split jobs 16059, early-A jobs 26893
+strata exl3-metal: 28000 calls, 11.47 experts/call, gather 1.502 ms, metal 0.312 ms per call, 0 fallbacks, tier 3170, slot LRU 261192 hits / 56677 misses (3800 slots), split jobs 16321, early-A jobs 27892
+strata exl3-metal: 29000 calls, 11.36 experts/call, gather 1.461 ms, metal 0.307 ms per call, 0 fallbacks, tier 3289, slot LRU 268950 hits / 57180 misses (3800 slots), split jobs 16654, early-A jobs 28892
+strata decode timing: 116 windows, avg T 2.94, 1.99 tokens/window, 121.18 ms/window = verify 111.54 (GPU-reach wait 18.62 + per-layer host 88.46 [plan 0.07 actq 0.00 jobs 24.50 CPU 9.01] + stage 1.06) + commit/emit 0.83 + draft 8.81; per layer-window: CPU experts 7.32 (10.58 entries), VRAM hits 18.69, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2782 ms (12.6 tok/s), 231 generated in 14057 ms (16.4 tok/s), drafts accepted 118 of 225, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 104074 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata exl3-metal: 30000 calls, 11.36 experts/call, gather 1.516 ms, metal 0.310 ms per call, 0 fallbacks, tier 3414, slot LRU 276597 hits / 60920 misses (3800 slots), split jobs 17309, early-A jobs 29885
+strata exl3-metal: 31000 calls, 11.39 experts/call, gather 1.499 ms, metal 0.309 ms per call, 0 fallbacks, tier 3510, slot LRU 287328 hits / 62265 misses (3800 slots), split jobs 17926, early-A jobs 30883
+strata exl3-metal: 32000 calls, 11.38 experts/call, gather 1.466 ms, metal 0.306 ms per call, 0 fallbacks, tier 3588, slot LRU 297729 hits / 62914 misses (3800 slots), split jobs 18314, early-A jobs 31883
+strata exl3-metal: 33000 calls, 11.41 experts/call, gather 1.434 ms, metal 0.305 ms per call, 0 fallbacks, tier 3687, slot LRU 309100 hits / 63597 misses (3800 slots), split jobs 18733, early-A jobs 32883
+strata exl3-metal: 34000 calls, 11.39 experts/call, gather 1.403 ms, metal 0.303 ms per call, 0 fallbacks, tier 3776, slot LRU 319057 hits / 64314 misses (3800 slots), split jobs 19148, early-A jobs 33883
+strata exl3-metal: 35000 calls, 11.39 experts/call, gather 1.373 ms, metal 0.302 ms per call, 0 fallbacks, tier 3849, slot LRU 329860 hits / 65105 misses (3800 slots), split jobs 19601, early-A jobs 34883
+strata exl3-metal: 36000 calls, 11.39 experts/call, gather 1.341 ms, metal 0.300 ms per call, 0 fallbacks, tier 3940, slot LRU 340507 hits / 65691 misses (3800 slots), split jobs 19960, early-A jobs 35883
+strata exl3-metal: 37000 calls, 11.42 experts/call, gather 1.320 ms, metal 0.300 ms per call, 0 fallbacks, tier 4052, slot LRU 351980 hits / 66683 misses (3800 slots), split jobs 20420, early-A jobs 36883
+strata decode timing: 156 windows, avg T 2.74, 1.84 tokens/window, 126.50 ms/window = verify 117.07 (GPU-reach wait 19.32 + per-layer host 93.30 [plan 0.06 actq 0.00 jobs 25.42 CPU 12.50] + stage 1.06) + commit/emit 0.81 + draft 8.63; per layer-window: CPU experts 11.56 (18.22 entries), VRAM hits 9.10, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2742 ms (10.6 tok/s), 287 generated in 19735 ms (14.5 tok/s), drafts accepted 132 of 271, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 68162 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+== done 2026-10-12T05:37:34Z

@@ -1,0 +1,50 @@
+== ht_final 2026-10-12T07:26:46Z cfg=/Users/sero/shim/strata-exl3-full512-final-g4-lru-ht.json
+[strata] 2026-10-12 00:26:48 engine started: /Users/sero/shim/run-strata.sh --serve --pack /Users/sero/exl3/pack_full512 --native /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile /Users/sero/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp /Users/sero/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 0.2 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile /Users/sero/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 63.4 s (217 MB/s); slot 0 verified
+strata exl3-metal: lane ready (/Users/sero/exl3/metal/libexl3metal.dylib; 5600 slots of 1867776 B registered)
+strata exl3-metal: LRU preloaded with 5600 of 5600 slots by profile rank in 4.8 s (10.46 GB, F_NOCACHE)
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 716 MiB of VRAM free with everything loaded
+READY
+-- mem at READY
+Pages free:                                     4129.
+Pages wired down:                             708938.
+File-backed pages:                            173117.
+Pages stored in compressor:                   291918.
+Pages occupied by compressor:                  92236.
+-- decode run 1
+{"i": 0, "wall_s": 19.0, "prompt_n": 29, "prompt_ms": 2455.8, "predicted_n": 300, "predicted_ms": 16463.6, "tok_s": 18.2, "drafts": "213/258", "pageins_mib": 7905, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 14.3, "prompt_n": 35, "prompt_ms": 2412.3, "predicted_n": 253, "predicted_ms": 11833.5, "tok_s": 21.4, "drafts": "134/225", "pageins_mib": 3714, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 18.6, "prompt_n": 29, "prompt_ms": 2370.3, "predicted_n": 292, "predicted_ms": 16165.7, "tok_s": 18.1, "drafts": "138/260", "pageins_mib": 4526, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- decode run 2
+{"i": 0, "wall_s": 18.9, "prompt_n": 29, "prompt_ms": 2130.1, "predicted_n": 300, "predicted_ms": 16792.8, "tok_s": 17.9, "drafts": "211/254", "pageins_mib": 8388, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 13.8, "prompt_n": 35, "prompt_ms": 2404.9, "predicted_n": 241, "predicted_ms": 11332.8, "tok_s": 21.3, "drafts": "128/223", "pageins_mib": 3584, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 17.4, "prompt_n": 29, "prompt_ms": 2398.9, "predicted_n": 265, "predicted_ms": 15006.7, "tok_s": 17.7, "drafts": "119/216", "pageins_mib": 4395, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- prefill rows
+10000 chars 3782 tokens 13639 ms 277.3 tok/s reply 'OK' wall 14.0
+10000 chars 3783 tokens 11339 ms 333.6 tok/s reply 'OK' wall 11.5
+24000 chars 7905 tokens 18477 ms 427.8 tok/s reply 'OK' wall 18.7
+24000 chars 7905 tokens 16424 ms 481.3 tok/s reply 'OK' wall 16.6
+55000 chars 17610 tokens 43287 ms 406.8 tok/s reply 'OK' wall 43.5
+-- needle 32000
+{"tokens": 32000, "depth": 50, "word": "meadow-copper-504", "found": true, "first_line_ok": true, "prompt_n": 33253, "cache_n": 0, "prompt_ms": 83974.9, "prefill_tok_s": 396.0, "ttft_s": 84.0, "predicted_n": 124, "decode_tok_s": 17.3, "drafts": "67/112", "wall_s": 91.2, "answer": "meadow-copper-504\n\nThis text is a comprehensive technical documentation set for \"Strata,\" a local AI inference engine running the Qwen3.8-Flash-Next model. It p"}
+-- vision
+Traceback (most recent call last):
+  File "/Users/sero/shim/final_vision.py", line 4, in <module>
+    from PIL import Image, ImageDraw, ImageFont
+ModuleNotFoundError: No module named 'PIL'
+-- decode after prefill
+{"i": 0, "wall_s": 18.8, "prompt_n": 29, "prompt_ms": 1666.5, "predicted_n": 300, "predicted_ms": 17101.6, "tok_s": 17.5, "drafts": "211/258", "pageins_mib": 8523, "pageouts_mib": 1, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 14.1, "prompt_n": 35, "prompt_ms": 2392.9, "predicted_n": 252, "predicted_ms": 11698.4, "tok_s": 21.5, "drafts": "134/223", "pageins_mib": 3805, "pageouts_mib": 1, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 17.6, "prompt_n": 29, "prompt_ms": 2369.3, "predicted_n": 267, "predicted_ms": 15231.0, "tok_s": 17.5, "drafts": "120/240", "pageins_mib": 4645, "pageouts_mib": 2, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+-- mem after all
+Pages free:                                     4584.
+Pages wired down:                             731252.
+File-backed pages:                            100289.
+Pages stored in compressor:                   366075.
+Pages occupied by compressor:                 150263.
+Pageouts:                                     134347.
+== done 2026-10-12T07:34:39Z

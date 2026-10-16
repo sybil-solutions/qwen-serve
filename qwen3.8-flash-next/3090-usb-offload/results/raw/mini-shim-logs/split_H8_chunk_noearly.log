@@ -1,0 +1,364 @@
+== H8_chunk_noearly 2026-10-11T19:26:04Z cfg=$HOME/shim/strata-exl3-full512-e.json
+STRATA_DECODE_TIMING=1
+STRATA_HS_TRACE=1
+STRATA_POOL_STATS=1
+STRATA_VERIFY_LAYER_AR=1
+[strata] 2026-10-11 12:26:07 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 9108 slots
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.28 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: 622 MiB of VRAM free with everything loaded
+READY
+ready after 174 s
+{"i": 0, "wall_s": 38.6, "prompt_n": 29, "prompt_ms": 3934.6, "predicted_n": 300, "predicted_ms": 34619.3, "tok_s": 8.7, "drafts": "212/255", "pageins_mib": 728, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 23.3, "prompt_n": 35, "prompt_ms": 2856.6, "predicted_n": 248, "predicted_ms": 20418.2, "tok_s": 12.1, "drafts": "130/219", "pageins_mib": 142, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 36.5, "prompt_n": 29, "prompt_ms": 3445.3, "predicted_n": 274, "predicted_ms": 33104.1, "tok_s": 8.3, "drafts": "131/265", "pageins_mib": 263, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+{"i": 0, "wall_s": 37.4, "prompt_n": 29, "prompt_ms": 2646.0, "predicted_n": 300, "predicted_ms": 34702.9, "tok_s": 8.6, "drafts": "212/257", "pageins_mib": 630, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+Traceback (most recent call last):
+  File "$HOME/shim/split_probe.py", line 22, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request(URL, body, {"Content-Type": "application/json"}), timeout=1800))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 523, in open
+    response = meth(req, response)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 632, in http_response
+    response = self.parent.error(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 561, in error
+    return self._call_chain(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 641, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+-- engine log
+[strata] 2026-10-11 12:26:07 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow
+strata generate: EXL3 expert pack (exl3_experts.txt v1, 512 experts x 1862400 B)
+strata generate: this CPU has no AVX-512: the expert kernels run on ggml-cpu vec_dot (no AVX2: the older-CPU build) (multi-token for the i-quant gate/up rows)
+strata generate: native pack: $HOME/exl3/pack_full512 experts (largest blob 1.86 MB), token embedding IQ4_XS in mapped host memory (322 MiB, 18.8 s)
+strata generate: 1466 MiB of weights loaded from $HOME/exl3/pack_full512 in 8.5 s (302 canonical tensors skipped: served natively)
+strata generate: 300 native projection matrices, 2018.88 MiB of weights, in 13.5 s
+strata generate: the SSD is kept awake while rows are read: one page of the table after 100 ms without a read, until 60 s after the last request (STRATA_SSD_KEEPALIVE=0 turns it off)
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: PLE on, table 320001536 rows of $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+strata mtp: draft layer loaded, 809 MiB of VRAM (experts 675, dense 111), files read in 4.32 s (182 MiB/s)
+strata generate: experimental native Q5_K head, 521472000 bytes, in 3.4 s
+strata generate: GPU 0: NVIDIA GeForce RTX 3090 (tgcu USB), compute capability 8.6
+strata generate: experts via mmap (--mmap-experts; the A/B arm of R2.1)
+strata generate: the file tier reads through the file cache (through the file cache (no unbuffered reads on this platform))
+strata generate: CPU pool tasks/phase: 30 (automatic), participating threads: 10
+strata generate: 9 pool workers on logical processors 1,2,3,4,5,6,7,8,9, the host thread on 0 (draining too) (--host-core first)
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 9108 slots
+strata generate: expert cache 9108 slots, 15.80 GiB of VRAM; policy is
+strata generate: the GPU computes the experts in the cache; it rounds differently from the CPU,
+                 so a reply can differ slightly from a run without the cache (same quality:
+                 bench/results/2026-09-27-cache-parity).
+                 PROFILE, ranked by routing frequency, no eviction.
+strata generate: the profile fill asks for 256 pairs ahead (STRATA_FILL_AHEAD)
+strata generate: pre-filled 9108 of 9108 slots from the profile in 108.2 s (157 MB/s); slot 0 verified
+strata generate: R4 hit path ON - resident experts are computed on the GPU
+strata generate: 9 expert-pool workers + the host thread
+strata generate: session is up (engine 0.1.41)
+strata generate: token graph hit path: 9108 resident experts, decided on the device
+FileExpertSource: --resident-budget-gib 6.00 exceeds available RAM (6.03 GiB minus 2 GiB headroom and a 0.25 GiB margin): 4.28 GiB
+FileExpertSource: RAM budget 4.28 GiB: 2470 of the 26.83 GiB of experts the GPU cache does not hold, by profile rank; the rest are read from the files
+FileExpertSource: allocating 4.28 GiB page-locked cache complement
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: copied cache complement through layer 8/48 (0.56 GiB, 1 s)
+FileExpertSource: copied cache complement through layer 16/48 (1.17 GiB, 1 s)
+FileExpertSource: copied cache complement through layer 24/48 (1.91 GiB, 2 s)
+FileExpertSource: copied cache complement through layer 32/48 (2.66 GiB, 3 s)
+FileExpertSource: copied cache complement through layer 40/48 (3.48 GiB, 3 s)
+FileExpertSource: copied cache complement through layer 48/48 (4.28 GiB, 4 s)
+FileExpertSource: locked resident cache complement ready: resident 4.28 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata generate: resident RAM mode: 4.28 GiB of experts in RAM (locked), 9108 in the GPU cache; adaptive swaps off
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata hc: CUDA0: the hyper-connection read runs as staged (the norm per token and stream, the down projection's activations staged ahead by cp.async); checked bit for bit against the plain read on this card (STRATA_HC_SPLIT=1 or 0 for the earlier ones)
+strata verify: window up to 6 tokens, 62.2 MiB of device buffers
+strata mtp: draft head over 106299 tokens (212.9 MiB)
+strata serve: 622 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (622 MiB of VRAM free)
+strata verify: captured the 6-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 4-token window (620 MiB of VRAM free)
+strata verify: captured the 4-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 1-token window (504 MiB of VRAM free)
+strata verify: captured the 1-token window (upload cudaSuccess, sync cudaSuccess)
+strata hs: 480 ring-layers (99% with CPU rows; 4.50 rows/layer, 4.48 cold rows) ms per ring-layer: wait-for-ring 0.724 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 8.405, reduce 0.005, y push 0.453, ple 0.023 | no-CPU-row layers tail 0.750 | flag push 0.027 | host b->end 8.820
+strata hs: 960 ring-layers (99% with CPU rows; 4.25 rows/layer, 4.22 cold rows) ms per ring-layer: wait-for-ring 0.743 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.640, reduce 0.005, y push 0.444, ple 0.023 | no-CPU-row layers tail 0.750 | flag push 0.023 | host b->end 7.098
+strata pool stats (1000 calls, 12.28 experts/call, 1.968 ms/call incl memcpy 0.008):
+  rot/xq(7)  wall 0.052 = park-wait 0.000 + host-drain 0.042 + done-wait 0.009 + repark 0.000 ms/call (24.6 tasks)
+  gu(8)      wall 1.256 = park-wait 0.000 + host-drain 1.199 + done-wait 0.057 + repark 0.000 ms/call (122.8 tasks)
+  swiglu(9)  wall 0.017 = park-wait 0.000 + host-drain 0.013 + done-wait 0.004 + repark 0.000 ms/call (12.3 tasks)
+  down(10)   wall 0.634 = park-wait 0.000 + host-drain 0.602 + done-wait 0.033 + repark 0.000 ms/call (122.8 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|26.8|1.812] w1[0.012|27.7|1.805] w2[0.011|27.0|1.803] w3[0.012|26.8|1.802] w4[0.011|26.8|1.803] w5[0.010|27.2|1.801] w6[0.009|26.8|1.808] w7[0.010|27.0|1.794] w8[0.012|26.9|1.807] H0[0.005|39.3|1.832]
+strata dispatch stats (1000 calls, 12.28 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.985, jobs(blob) 0.001, pool run 1.973 ms/call
+strata hs: 1440 ring-layers (100% with CPU rows; 4.17 rows/layer, 4.14 cold rows) ms per ring-layer: wait-for-ring 0.738 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.774, reduce 0.005, y push 0.446, ple 0.022 | no-CPU-row layers tail 0.750 | flag push 0.022 | host b->end 7.244
+strata verify: capturing the 2-token window (502 MiB of VRAM free)
+strata verify: captured the 2-token window (upload cudaSuccess, sync cudaSuccess)
+strata hs: 1920 ring-layers (100% with CPU rows; 4.08 rows/layer, 4.05 cold rows) ms per ring-layer: wait-for-ring 0.731 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.610, reduce 0.005, y push 0.445, ple 0.022 | no-CPU-row layers tail 0.795 | flag push 0.022 | host b->end 7.078
+strata pool stats (2000 calls, 13.66 experts/call, 2.169 ms/call incl memcpy 0.009):
+  rot/xq(7)  wall 0.056 = park-wait 0.000 + host-drain 0.045 + done-wait 0.012 + repark 0.000 ms/call (27.3 tasks)
+  gu(8)      wall 1.389 = park-wait 0.000 + host-drain 1.331 + done-wait 0.057 + repark 0.000 ms/call (136.6 tasks)
+  swiglu(9)  wall 0.019 = park-wait 0.000 + host-drain 0.014 + done-wait 0.005 + repark 0.000 ms/call (13.7 tasks)
+  down(10)   wall 0.697 = park-wait 0.000 + host-drain 0.663 + done-wait 0.034 + repark 0.000 ms/call (136.6 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|30.1|2.010] w1[0.011|30.4|2.010] w2[0.011|30.3|2.011] w3[0.011|30.1|2.005] w4[0.011|29.7|2.003] w5[0.011|30.1|2.003] w6[0.010|29.7|2.005] w7[0.010|30.1|2.003] w8[0.011|30.0|2.009] H0[0.005|43.5|2.027]
+strata dispatch stats (2000 calls, 13.66 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.848, jobs(blob) 0.001, pool run 2.172 ms/call
+strata hs: 2400 ring-layers (100% with CPU rows; 4.00 rows/layer, 3.98 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.500, reduce 0.005, y push 0.445, ple 0.022 | no-CPU-row layers tail 0.754 | flag push 0.022 | host b->end 6.966
+strata verify: capturing the 3-token window (500 MiB of VRAM free)
+strata verify: captured the 3-token window (upload cudaSuccess, sync cudaSuccess)
+strata hs: 2880 ring-layers (100% with CPU rows; 3.98 rows/layer, 3.97 cold rows) ms per ring-layer: wait-for-ring 0.721 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.642, reduce 0.005, y push 0.446, ple 0.022 | no-CPU-row layers tail 0.754 | flag push 0.022 | host b->end 7.112
+strata pool stats (3000 calls, 14.10 experts/call, 2.224 ms/call incl memcpy 0.009):
+  rot/xq(7)  wall 0.057 = park-wait 0.000 + host-drain 0.046 + done-wait 0.012 + repark 0.000 ms/call (28.2 tasks)
+  gu(8)      wall 1.423 = park-wait 0.000 + host-drain 1.365 + done-wait 0.058 + repark 0.000 ms/call (141.0 tasks)
+  swiglu(9)  wall 0.019 = park-wait 0.000 + host-drain 0.014 + done-wait 0.005 + repark 0.000 ms/call (14.1 tasks)
+  down(10)   wall 0.715 = park-wait 0.000 + host-drain 0.681 + done-wait 0.034 + repark 0.000 ms/call (141.0 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|31.2|2.066] w1[0.011|31.3|2.066] w2[0.011|31.1|2.067] w3[0.011|31.0|2.058] w4[0.011|31.0|2.063] w5[0.010|31.0|2.060] w6[0.011|30.6|2.061] w7[0.010|31.3|2.065] w8[0.011|31.0|2.062] H0[0.005|44.8|2.080]
+strata dispatch stats (3000 calls, 14.10 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.679, jobs(blob) 0.001, pool run 2.226 ms/call
+strata hs: 3360 ring-layers (100% with CPU rows; 3.99 rows/layer, 3.97 cold rows) ms per ring-layer: wait-for-ring 0.717 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.646, reduce 0.005, y push 0.445, ple 0.022 | no-CPU-row layers tail 0.754 | flag push 0.021 | host b->end 7.119
+strata hs: 3840 ring-layers (100% with CPU rows; 3.99 rows/layer, 3.97 cold rows) ms per ring-layer: wait-for-ring 0.717 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 7.156, reduce 0.005, y push 0.448, ple 0.022 | no-CPU-row layers tail 0.754 | flag push 0.021 | host b->end 7.632
+strata pool stats (4000 calls, 14.61 experts/call, 2.304 ms/call incl memcpy 0.009):
+  rot/xq(7)  wall 0.058 = park-wait 0.000 + host-drain 0.046 + done-wait 0.011 + repark 0.000 ms/call (29.2 tasks)
+  gu(8)      wall 1.476 = park-wait 0.000 + host-drain 1.418 + done-wait 0.058 + repark 0.000 ms/call (146.1 tasks)
+  swiglu(9)  wall 0.019 = park-wait 0.000 + host-drain 0.015 + done-wait 0.004 + repark 0.000 ms/call (14.6 tasks)
+  down(10)   wall 0.742 = park-wait 0.000 + host-drain 0.708 + done-wait 0.034 + repark 0.000 ms/call (146.1 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|32.3|2.144] w1[0.011|32.3|2.142] w2[0.011|32.2|2.142] w3[0.012|32.2|2.139] w4[0.011|32.2|2.144] w5[0.010|32.2|2.142] w6[0.011|31.7|2.142] w7[0.010|32.4|2.145] w8[0.011|32.1|2.138] H0[0.005|46.4|2.160]
+strata dispatch stats (4000 calls, 14.61 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.963, jobs(blob) 0.001, pool run 2.305 ms/call
+strata hs: 4320 ring-layers (100% with CPU rows; 3.93 rows/layer, 3.89 cold rows) ms per ring-layer: wait-for-ring 0.717 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.780, reduce 0.005, y push 0.446, ple 0.022 | no-CPU-row layers tail 0.826 | flag push 0.023 | host b->end 7.243
+strata decode timing: 91 windows, avg T 3.80, 3.30 tokens/window, 380.43 ms/window = verify 369.13 (GPU-reach wait 34.21 + per-layer host 329.10 [plan 0.08 actq 0.00 jobs 168.98 CPU 104.19] + stage 1.04) + commit/emit 1.09 + draft 10.20; per layer-window: CPU experts 13.84 (20.41 entries), VRAM hits 17.52, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 3935 ms (7.4 tok/s), 300 generated in 34619 ms (8.7 tok/s), drafts accepted 212 of 255, 1 checkpoints
+strata serve: decode expert cache hit rate: 46.2% (76533 hits / 165690 lookups)
+strata serve: resident RAM: 4.28 GiB of experts in RAM, 0 exchanged with the VRAM tier, 51631 blob reads from the file
+strata serve: expert tiers: GPU 76533 hits this request; since the start RAM 11841 blobs, files 51631 blobs 113122.2 MB read
+strata serve: suffix drafts: 1 windows, 1 of 1 drafts accepted
+strata hs: 4800 ring-layers (100% with CPU rows; 3.98 rows/layer, 3.93 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.728, reduce 0.005, y push 0.445, ple 0.022 | no-CPU-row layers tail 0.838 | flag push 0.023 | host b->end 7.190
+strata pool stats (5000 calls, 13.49 experts/call, 2.139 ms/call incl memcpy 0.008):
+  rot/xq(7)  wall 0.054 = park-wait 0.000 + host-drain 0.044 + done-wait 0.011 + repark 0.000 ms/call (27.0 tasks)
+  gu(8)      wall 1.371 = park-wait 0.000 + host-drain 1.313 + done-wait 0.057 + repark 0.000 ms/call (134.9 tasks)
+  swiglu(9)  wall 0.018 = park-wait 0.000 + host-drain 0.014 + done-wait 0.004 + repark 0.000 ms/call (13.5 tasks)
+  down(10)   wall 0.688 = park-wait 0.000 + host-drain 0.654 + done-wait 0.033 + repark 0.000 ms/call (134.9 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|29.8|1.976] w1[0.012|29.8|1.978] w2[0.011|29.6|1.975] w3[0.012|29.8|1.975] w4[0.011|29.7|1.977] w5[0.011|29.7|1.976] w6[0.011|29.4|1.976] w7[0.011|29.8|1.974] w8[0.011|29.7|1.972] H0[0.005|43.0|1.999]
+strata dispatch stats (5000 calls, 13.49 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.755, jobs(blob) 0.001, pool run 2.140 ms/call
+strata hs: 5280 ring-layers (99% with CPU rows; 3.91 rows/layer, 3.86 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.379, reduce 0.004, y push 0.444, ple 0.022 | no-CPU-row layers tail 0.859 | flag push 0.024 | host b->end 6.832
+strata hs: 5760 ring-layers (99% with CPU rows; 3.83 rows/layer, 3.78 cold rows) ms per ring-layer: wait-for-ring 0.725 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 6.043, reduce 0.004, y push 0.442, ple 0.022 | no-CPU-row layers tail 0.854 | flag push 0.025 | host b->end 6.488
+strata pool stats (6000 calls, 12.08 experts/call, 1.924 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.050 = park-wait 0.000 + host-drain 0.040 + done-wait 0.010 + repark 0.000 ms/call (24.2 tasks)
+  gu(8)      wall 1.232 = park-wait 0.000 + host-drain 1.175 + done-wait 0.056 + repark 0.000 ms/call (120.8 tasks)
+  swiglu(9)  wall 0.017 = park-wait 0.000 + host-drain 0.013 + done-wait 0.004 + repark 0.000 ms/call (12.1 tasks)
+  down(10)   wall 0.618 = park-wait 0.000 + host-drain 0.585 + done-wait 0.033 + repark 0.000 ms/call (120.8 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|26.7|1.759] w1[0.012|26.6|1.758] w2[0.012|26.5|1.757] w3[0.012|26.6|1.755] w4[0.012|26.6|1.757] w5[0.011|26.6|1.757] w6[0.012|26.3|1.758] w7[0.011|26.7|1.755] w8[0.012|26.6|1.753] H0[0.004|38.7|1.788]
+strata dispatch stats (6000 calls, 12.08 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 3.241, jobs(blob) 0.001, pool run 1.925 ms/call
+strata hs: 6240 ring-layers (99% with CPU rows; 3.67 rows/layer, 3.63 cold rows) ms per ring-layer: wait-for-ring 0.715 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 5.725, reduce 0.004, y push 0.440, ple 0.022 | no-CPU-row layers tail 0.874 | flag push 0.029 | host b->end 6.149
+strata hs: 6720 ring-layers (99% with CPU rows; 3.62 rows/layer, 3.57 cold rows) ms per ring-layer: wait-for-ring 0.720 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 5.473, reduce 0.004, y push 0.438, ple 0.022 | no-CPU-row layers tail 0.876 | flag push 0.029 | host b->end 5.897
+strata pool stats (7000 calls, 11.14 experts/call, 1.775 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.046 = park-wait 0.000 + host-drain 0.037 + done-wait 0.009 + repark 0.000 ms/call (22.3 tasks)
+  gu(8)      wall 1.137 = park-wait 0.000 + host-drain 1.081 + done-wait 0.056 + repark 0.000 ms/call (111.4 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (11.1 tasks)
+  down(10)   wall 0.570 = park-wait 0.000 + host-drain 0.537 + done-wait 0.033 + repark 0.000 ms/call (111.4 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|24.5|1.608] w1[0.012|24.5|1.608] w2[0.012|24.5|1.609] w3[0.012|24.5|1.606] w4[0.012|24.5|1.607] w5[0.011|24.5|1.607] w6[0.012|24.3|1.608] w7[0.012|24.6|1.607] w8[0.012|24.5|1.605] H0[0.004|35.8|1.643]
+strata dispatch stats (7000 calls, 11.14 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 2.859, jobs(blob) 0.001, pool run 1.776 ms/call
+strata hs: 7200 ring-layers (99% with CPU rows; 3.59 rows/layer, 3.53 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 5.258, reduce 0.004, y push 0.437, ple 0.022 | no-CPU-row layers tail 0.869 | flag push 0.029 | host b->end 5.683
+strata hs: 7680 ring-layers (99% with CPU rows; 3.54 rows/layer, 3.48 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 5.067, reduce 0.004, y push 0.436, ple 0.022 | no-CPU-row layers tail 0.865 | flag push 0.030 | host b->end 5.490
+strata pool stats (8000 calls, 10.36 experts/call, 1.655 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.044 = park-wait 0.000 + host-drain 0.035 + done-wait 0.009 + repark 0.000 ms/call (20.7 tasks)
+  gu(8)      wall 1.059 = park-wait 0.000 + host-drain 1.004 + done-wait 0.056 + repark 0.000 ms/call (103.6 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.4 tasks)
+  down(10)   wall 0.531 = park-wait 0.000 + host-drain 0.498 + done-wait 0.032 + repark 0.000 ms/call (103.6 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|22.8|1.486] w1[0.013|22.8|1.486] w2[0.012|22.7|1.486] w3[0.013|22.8|1.485] w4[0.012|22.8|1.486] w5[0.012|22.8|1.486] w6[0.012|22.6|1.487] w7[0.012|22.9|1.485] w8[0.012|22.8|1.482] H0[0.004|33.5|1.525]
+strata dispatch stats (8000 calls, 10.36 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 2.569, jobs(blob) 0.000, pool run 1.656 ms/call
+strata hs: 8160 ring-layers (99% with CPU rows; 3.49 rows/layer, 3.42 cold rows) ms per ring-layer: wait-for-ring 0.720 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.884, reduce 0.004, y push 0.435, ple 0.022 | no-CPU-row layers tail 0.861 | flag push 0.032 | host b->end 5.298
+strata hs: 8640 ring-layers (98% with CPU rows; 3.45 rows/layer, 3.38 cold rows) ms per ring-layer: wait-for-ring 0.720 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.722, reduce 0.003, y push 0.434, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.034 | host b->end 5.127
+strata hs: 9120 ring-layers (98% with CPU rows; 3.43 rows/layer, 3.36 cold rows) ms per ring-layer: wait-for-ring 0.722 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.591, reduce 0.003, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.883 | flag push 0.034 | host b->end 4.997
+strata pool stats (9000 calls, 9.80 experts/call, 1.566 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.042 = park-wait 0.000 + host-drain 0.034 + done-wait 0.008 + repark 0.000 ms/call (19.6 tasks)
+  gu(8)      wall 1.002 = park-wait 0.000 + host-drain 0.947 + done-wait 0.055 + repark 0.000 ms/call (98.0 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.8 tasks)
+  down(10)   wall 0.502 = park-wait 0.000 + host-drain 0.470 + done-wait 0.032 + repark 0.000 ms/call (98.0 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|21.5|1.397] w1[0.013|21.5|1.397] w2[0.012|21.5|1.397] w3[0.013|21.5|1.396] w4[0.012|21.5|1.397] w5[0.012|21.6|1.397] w6[0.013|21.3|1.396] w7[0.012|21.6|1.396] w8[0.013|21.5|1.393] H0[0.004|31.8|1.439]
+strata dispatch stats (9000 calls, 9.80 cold experts/call): begin+plan 0.002, actq 0.000, prefetch 2.341, jobs(blob) 0.000, pool run 1.567 ms/call
+strata hs: 9600 ring-layers (98% with CPU rows; 3.42 rows/layer, 3.35 cold rows) ms per ring-layer: wait-for-ring 0.724 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.483, reduce 0.003, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.880 | flag push 0.034 | host b->end 4.889
+strata hs: 10080 ring-layers (98% with CPU rows; 3.40 rows/layer, 3.33 cold rows) ms per ring-layer: wait-for-ring 0.725 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.372, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.878 | flag push 0.035 | host b->end 4.775
+strata pool stats (10000 calls, 9.44 experts/call, 1.509 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (18.9 tasks)
+  gu(8)      wall 0.965 = park-wait 0.000 + host-drain 0.910 + done-wait 0.055 + repark 0.000 ms/call (94.4 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.4 tasks)
+  down(10)   wall 0.483 = park-wait 0.000 + host-drain 0.451 + done-wait 0.032 + repark 0.000 ms/call (94.4 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|20.8|1.341] w1[0.013|20.8|1.341] w2[0.012|20.7|1.340] w3[0.013|20.7|1.339] w4[0.012|20.7|1.340] w5[0.012|20.8|1.341] w6[0.013|20.5|1.339] w7[0.012|20.8|1.339] w8[0.013|20.7|1.337] H0[0.004|30.6|1.382]
+strata dispatch stats (10000 calls, 9.44 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.163, jobs(blob) 0.000, pool run 1.510 ms/call
+strata hs: 10560 ring-layers (98% with CPU rows; 3.37 rows/layer, 3.30 cold rows) ms per ring-layer: wait-for-ring 0.725 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.257, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.881 | flag push 0.036 | host b->end 4.657
+strata decode timing: 119 windows, avg T 2.84, 2.08 tokens/window, 171.58 ms/window = verify 162.14 (GPU-reach wait 34.84 + per-layer host 122.81 [plan 0.05 actq 0.00 jobs 27.93 CPU 40.86] + stage 1.06) + commit/emit 0.82 + draft 8.61; per layer-window: CPU experts 5.21 (7.37 entries), VRAM hits 20.54, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2857 ms (12.3 tok/s), 248 generated in 20418 ms (12.1 tok/s), drafts accepted 130 of 219, 1 checkpoints
+strata serve: decode expert cache hit rate: 73.6% (117344 hits / 159430 lookups)
+strata serve: resident RAM: 4.28 GiB of experts in RAM, 0 exchanged with the VRAM tier, 72566 blob reads from the file
+strata serve: expert tiers: GPU 117344 hits this request; since the start RAM 23988 blobs, files 72566 blobs 152111.5 MB read
+strata hs: 11040 ring-layers (98% with CPU rows; 3.38 rows/layer, 3.31 cold rows) ms per ring-layer: wait-for-ring 0.726 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.427, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.036 | host b->end 4.826
+strata pool stats (11000 calls, 9.44 experts/call, 1.518 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (18.9 tasks)
+  gu(8)      wall 0.970 = park-wait 0.000 + host-drain 0.916 + done-wait 0.055 + repark 0.000 ms/call (94.4 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.4 tasks)
+  down(10)   wall 0.486 = park-wait 0.000 + host-drain 0.454 + done-wait 0.032 + repark 0.000 ms/call (94.4 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|20.7|1.348] w1[0.013|20.8|1.348] w2[0.013|20.7|1.347] w3[0.013|20.8|1.347] w4[0.013|20.7|1.346] w5[0.012|20.8|1.348] w6[0.013|20.5|1.346] w7[0.013|20.8|1.346] w8[0.013|20.7|1.345] H0[0.004|30.7|1.391]
+strata dispatch stats (11000 calls, 9.44 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.238, jobs(blob) 0.000, pool run 1.518 ms/call
+strata hs: 11520 ring-layers (98% with CPU rows; 3.35 rows/layer, 3.28 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.435, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.035 | host b->end 4.836
+strata hs: 12000 ring-layers (98% with CPU rows; 3.33 rows/layer, 3.26 cold rows) ms per ring-layer: wait-for-ring 0.723 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.401, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.035 | host b->end 4.805
+strata pool stats (12000 calls, 9.55 experts/call, 1.527 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.1 tasks)
+  gu(8)      wall 0.977 = park-wait 0.000 + host-drain 0.922 + done-wait 0.055 + repark 0.000 ms/call (95.5 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.5 tasks)
+  down(10)   wall 0.489 = park-wait 0.000 + host-drain 0.457 + done-wait 0.032 + repark 0.000 ms/call (95.5 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.013|21.0|1.360] w1[0.013|21.1|1.360] w2[0.012|20.9|1.358] w3[0.013|21.0|1.358] w4[0.012|20.9|1.358] w5[0.012|21.0|1.359] w6[0.012|20.8|1.358] w7[0.012|21.0|1.357] w8[0.013|21.0|1.356] H0[0.004|31.0|1.400]
+strata dispatch stats (12000 calls, 9.55 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.179, jobs(blob) 0.000, pool run 1.527 ms/call
+strata hs: 12480 ring-layers (98% with CPU rows; 3.32 rows/layer, 3.26 cold rows) ms per ring-layer: wait-for-ring 0.721 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.368, reduce 0.003, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.034 | host b->end 4.775
+strata hs: 12960 ring-layers (98% with CPU rows; 3.31 rows/layer, 3.25 cold rows) ms per ring-layer: wait-for-ring 0.718 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.346, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.033 | host b->end 4.756
+strata pool stats (13000 calls, 9.74 experts/call, 1.552 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.5 tasks)
+  gu(8)      wall 0.993 = park-wait 0.000 + host-drain 0.938 + done-wait 0.055 + repark 0.000 ms/call (97.4 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.7 tasks)
+  down(10)   wall 0.497 = park-wait 0.000 + host-drain 0.465 + done-wait 0.032 + repark 0.000 ms/call (97.4 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.4|1.388] w1[0.012|21.5|1.388] w2[0.012|21.3|1.385] w3[0.012|21.4|1.386] w4[0.012|21.4|1.385] w5[0.012|21.4|1.386] w6[0.012|21.3|1.386] w7[0.012|21.4|1.385] w8[0.012|21.4|1.383] H0[0.004|31.5|1.425]
+strata dispatch stats (13000 calls, 9.74 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.102, jobs(blob) 0.000, pool run 1.552 ms/call
+strata hs: 13440 ring-layers (98% with CPU rows; 3.30 rows/layer, 3.24 cold rows) ms per ring-layer: wait-for-ring 0.717 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.314, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.885 | flag push 0.033 | host b->end 4.725
+strata hs: 13920 ring-layers (98% with CPU rows; 3.30 rows/layer, 3.24 cold rows) ms per ring-layer: wait-for-ring 0.714 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.282, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.885 | flag push 0.033 | host b->end 4.695
+strata pool stats (14000 calls, 9.83 experts/call, 1.558 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.7 tasks)
+  gu(8)      wall 0.997 = park-wait 0.000 + host-drain 0.942 + done-wait 0.055 + repark 0.000 ms/call (98.3 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.8 tasks)
+  down(10)   wall 0.499 = park-wait 0.000 + host-drain 0.467 + done-wait 0.032 + repark 0.000 ms/call (98.3 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.6|1.395] w1[0.012|21.7|1.395] w2[0.012|21.5|1.393] w3[0.012|21.6|1.393] w4[0.012|21.6|1.393] w5[0.012|21.6|1.394] w6[0.012|21.5|1.393] w7[0.012|21.6|1.393] w8[0.012|21.5|1.391] H0[0.004|31.8|1.431]
+strata dispatch stats (14000 calls, 9.83 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.007, jobs(blob) 0.000, pool run 1.558 ms/call
+strata hs: 14400 ring-layers (98% with CPU rows; 3.26 rows/layer, 3.20 cold rows) ms per ring-layer: wait-for-ring 0.714 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.224, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.879 | flag push 0.032 | host b->end 4.639
+strata hs: 14880 ring-layers (98% with CPU rows; 3.24 rows/layer, 3.18 cold rows) ms per ring-layer: wait-for-ring 0.714 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.181, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.876 | flag push 0.032 | host b->end 4.596
+strata pool stats (15000 calls, 9.85 experts/call, 1.558 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.7 tasks)
+  gu(8)      wall 0.997 = park-wait 0.000 + host-drain 0.942 + done-wait 0.055 + repark 0.000 ms/call (98.5 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.9 tasks)
+  down(10)   wall 0.499 = park-wait 0.000 + host-drain 0.467 + done-wait 0.032 + repark 0.000 ms/call (98.5 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.7|1.396] w1[0.012|21.8|1.397] w2[0.012|21.6|1.394] w3[0.012|21.7|1.395] w4[0.012|21.6|1.395] w5[0.011|21.7|1.395] w6[0.012|21.5|1.395] w7[0.011|21.7|1.394] w8[0.012|21.6|1.392] H0[0.004|31.9|1.431]
+strata dispatch stats (15000 calls, 9.85 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.924, jobs(blob) 0.000, pool run 1.558 ms/call
+strata hs: 15360 ring-layers (98% with CPU rows; 3.22 rows/layer, 3.16 cold rows) ms per ring-layer: wait-for-ring 0.712 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.142, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.874 | flag push 0.032 | host b->end 4.559
+strata hs: 15840 ring-layers (98% with CPU rows; 3.19 rows/layer, 3.13 cold rows) ms per ring-layer: wait-for-ring 0.711 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.105, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.032 | host b->end 4.523
+strata pool stats (16000 calls, 9.90 experts/call, 1.560 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.8 tasks)
+  gu(8)      wall 0.999 = park-wait 0.000 + host-drain 0.944 + done-wait 0.055 + repark 0.000 ms/call (99.0 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.9 tasks)
+  down(10)   wall 0.499 = park-wait 0.000 + host-drain 0.467 + done-wait 0.032 + repark 0.000 ms/call (99.0 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.7|1.400] w1[0.012|21.9|1.401] w2[0.011|21.7|1.399] w3[0.012|21.8|1.399] w4[0.012|21.7|1.400] w5[0.011|21.8|1.399] w6[0.011|21.7|1.399] w7[0.011|21.8|1.399] w8[0.012|21.7|1.397] H0[0.004|32.0|1.433]
+strata dispatch stats (16000 calls, 9.90 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.848, jobs(blob) 0.000, pool run 1.560 ms/call
+strata hs: 16320 ring-layers (99% with CPU rows; 3.19 rows/layer, 3.14 cold rows) ms per ring-layer: wait-for-ring 0.710 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.082, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.031 | host b->end 4.502
+strata hs: 16800 ring-layers (99% with CPU rows; 3.17 rows/layer, 3.12 cold rows) ms per ring-layer: wait-for-ring 0.709 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.041, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.872 | flag push 0.031 | host b->end 4.461
+strata pool stats (17000 calls, 9.96 experts/call, 1.568 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.9 tasks)
+  gu(8)      wall 1.004 = park-wait 0.000 + host-drain 0.949 + done-wait 0.055 + repark 0.000 ms/call (99.6 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.0 tasks)
+  down(10)   wall 0.502 = park-wait 0.000 + host-drain 0.470 + done-wait 0.032 + repark 0.000 ms/call (99.6 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.9|1.409] w1[0.011|22.0|1.410] w2[0.011|21.8|1.408] w3[0.012|21.8|1.407] w4[0.011|21.9|1.408] w5[0.011|21.9|1.408] w6[0.011|21.8|1.408] w7[0.011|21.9|1.407] w8[0.012|21.8|1.406] H0[0.004|32.1|1.441]
+strata dispatch stats (17000 calls, 9.96 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.789, jobs(blob) 0.000, pool run 1.568 ms/call
+strata hs: 17280 ring-layers (99% with CPU rows; 3.19 rows/layer, 3.13 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.029, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.872 | flag push 0.031 | host b->end 4.451
+strata hs: 17760 ring-layers (99% with CPU rows; 3.20 rows/layer, 3.14 cold rows) ms per ring-layer: wait-for-ring 0.707 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.031, reduce 0.003, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.872 | flag push 0.031 | host b->end 4.454
+strata decode timing: 144 windows, avg T 2.84, 1.90 tokens/window, 229.89 ms/window = verify 220.29 (GPU-reach wait 32.31 + per-layer host 183.27 [plan 0.06 actq 0.00 jobs 49.74 CPU 78.82] + stage 1.06) + commit/emit 0.85 + draft 8.75; per layer-window: CPU experts 10.78 (17.69 entries), VRAM hits 10.63, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 3445 ms (8.4 tok/s), 274 generated in 33104 ms (8.3 tok/s), drafts accepted 131 of 265, 1 checkpoints
+strata serve: decode expert cache hit rate: 37.5% (73499 hits / 195770 lookups)
+strata serve: resident RAM: 4.28 GiB of experts in RAM, 0 exchanged with the VRAM tier, 139008 blob reads from the file
+strata serve: expert tiers: GPU 73499 hits this request; since the start RAM 36324 blobs, files 139008 blobs 275853.1 MB read
+strata hs: 18240 ring-layers (99% with CPU rows; 3.23 rows/layer, 3.18 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.131, reduce 0.004, y push 0.430, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.031 | host b->end 4.554
+strata pool stats (18000 calls, 10.09 experts/call, 1.589 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.042 = park-wait 0.000 + host-drain 0.034 + done-wait 0.008 + repark 0.000 ms/call (20.2 tasks)
+  gu(8)      wall 1.017 = park-wait 0.000 + host-drain 0.963 + done-wait 0.055 + repark 0.000 ms/call (100.9 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.1 tasks)
+  down(10)   wall 0.508 = park-wait 0.000 + host-drain 0.476 + done-wait 0.032 + repark 0.000 ms/call (100.9 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|22.2|1.430] w1[0.011|22.3|1.431] w2[0.011|22.1|1.429] w3[0.012|22.1|1.428] w4[0.011|22.2|1.429] w5[0.011|22.2|1.428] w6[0.011|22.1|1.429] w7[0.011|22.2|1.428] w8[0.012|22.1|1.427] H0[0.004|32.5|1.461]
+strata dispatch stats (18000 calls, 10.09 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.873, jobs(blob) 0.000, pool run 1.589 ms/call
+strata hs: 18720 ring-layers (99% with CPU rows; 3.25 rows/layer, 3.20 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.148, reduce 0.004, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.030 | host b->end 4.572
+strata hs: 19200 ring-layers (99% with CPU rows; 3.27 rows/layer, 3.22 cold rows) ms per ring-layer: wait-for-ring 0.709 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.217, reduce 0.004, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.030 | host b->end 4.642
+strata pool stats (19000 calls, 10.26 experts/call, 1.614 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.042 = park-wait 0.000 + host-drain 0.034 + done-wait 0.008 + repark 0.000 ms/call (20.5 tasks)
+  gu(8)      wall 1.034 = park-wait 0.000 + host-drain 0.979 + done-wait 0.055 + repark 0.000 ms/call (102.6 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.3 tasks)
+  down(10)   wall 0.517 = park-wait 0.000 + host-drain 0.484 + done-wait 0.032 + repark 0.000 ms/call (102.6 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|22.6|1.456] w1[0.011|22.7|1.457] w2[0.011|22.5|1.455] w3[0.011|22.5|1.454] w4[0.011|22.6|1.455] w5[0.011|22.6|1.454] w6[0.011|22.5|1.455] w7[0.011|22.6|1.455] w8[0.011|22.5|1.453] H0[0.004|33.1|1.486]
+strata dispatch stats (19000 calls, 10.26 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.937, jobs(blob) 0.000, pool run 1.615 ms/call
+strata hs: 19680 ring-layers (99% with CPU rows; 3.28 rows/layer, 3.23 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.263, reduce 0.004, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.030 | host b->end 4.689
+strata hs: 20160 ring-layers (99% with CPU rows; 3.29 rows/layer, 3.24 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.305, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.030 | host b->end 4.731
+strata pool stats (20000 calls, 10.47 experts/call, 1.646 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.043 = park-wait 0.000 + host-drain 0.035 + done-wait 0.008 + repark 0.000 ms/call (20.9 tasks)
+  gu(8)      wall 1.054 = park-wait 0.000 + host-drain 0.999 + done-wait 0.055 + repark 0.000 ms/call (104.7 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.5 tasks)
+  down(10)   wall 0.527 = park-wait 0.000 + host-drain 0.494 + done-wait 0.032 + repark 0.000 ms/call (104.7 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|23.1|1.488] w1[0.011|23.2|1.489] w2[0.011|23.0|1.486] w3[0.011|23.0|1.486] w4[0.011|23.0|1.487] w5[0.011|23.1|1.486] w6[0.011|23.0|1.486] w7[0.011|23.0|1.487] w8[0.011|23.0|1.485] H0[0.004|33.7|1.517]
+strata dispatch stats (20000 calls, 10.47 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.000, jobs(blob) 0.000, pool run 1.646 ms/call
+strata hs: 20640 ring-layers (99% with CPU rows; 3.30 rows/layer, 3.26 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.386, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.030 | host b->end 4.813
+strata hs: 21120 ring-layers (99% with CPU rows; 3.32 rows/layer, 3.27 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.442, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.029 | host b->end 4.870
+strata pool stats (21000 calls, 10.76 experts/call, 1.692 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.044 = park-wait 0.000 + host-drain 0.035 + done-wait 0.008 + repark 0.000 ms/call (21.5 tasks)
+  gu(8)      wall 1.084 = park-wait 0.000 + host-drain 1.029 + done-wait 0.055 + repark 0.000 ms/call (107.6 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.8 tasks)
+  down(10)   wall 0.542 = park-wait 0.000 + host-drain 0.509 + done-wait 0.032 + repark 0.000 ms/call (107.6 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|23.7|1.534] w1[0.011|23.8|1.534] w2[0.011|23.6|1.532] w3[0.011|23.6|1.531] w4[0.011|23.7|1.532] w5[0.011|23.7|1.532] w6[0.011|23.6|1.532] w7[0.011|23.7|1.533] w8[0.011|23.6|1.531] H0[0.004|34.6|1.562]
+strata dispatch stats (21000 calls, 10.76 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.126, jobs(blob) 0.000, pool run 1.692 ms/call
+strata hs: 21600 ring-layers (99% with CPU rows; 3.34 rows/layer, 3.29 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.584, reduce 0.004, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.029 | host b->end 5.012
+strata hs: 22080 ring-layers (99% with CPU rows; 3.34 rows/layer, 3.29 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.566, reduce 0.004, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.029 | host b->end 4.993
+strata pool stats (22000 calls, 10.80 experts/call, 1.699 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.044 = park-wait 0.000 + host-drain 0.036 + done-wait 0.008 + repark 0.000 ms/call (21.6 tasks)
+  gu(8)      wall 1.088 = park-wait 0.000 + host-drain 1.033 + done-wait 0.055 + repark 0.000 ms/call (108.0 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.8 tasks)
+  down(10)   wall 0.544 = park-wait 0.000 + host-drain 0.511 + done-wait 0.032 + repark 0.000 ms/call (108.0 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|23.8|1.540] w1[0.011|23.9|1.541] w2[0.011|23.7|1.538] w3[0.011|23.7|1.538] w4[0.011|23.7|1.539] w5[0.011|23.8|1.539] w6[0.011|23.7|1.539] w7[0.011|23.8|1.539] w8[0.011|23.7|1.537] H0[0.004|34.7|1.569]
+strata dispatch stats (22000 calls, 10.80 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.187, jobs(blob) 0.000, pool run 1.699 ms/call
+strata decode timing: 91 windows, avg T 3.82, 3.30 tokens/window, 381.35 ms/window = verify 370.21 (GPU-reach wait 34.04 + per-layer host 331.43 [plan 0.08 actq 0.00 jobs 171.59 CPU 103.92] + stage 1.06) + commit/emit 1.10 + draft 10.04; per layer-window: CPU experts 13.84 (20.44 entries), VRAM hits 17.73, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2646 ms (11.0 tok/s), 300 generated in 34703 ms (8.6 tok/s), drafts accepted 212 of 257, 1 checkpoints
+strata serve: decode expert cache hit rate: 46.5% (77463 hits / 166740 lookups)
+strata serve: resident RAM: 4.28 GiB of experts in RAM, 0 exchanged with the VRAM tier, 190608 blob reads from the file
+strata serve: expert tiers: GPU 77463 hits this request; since the start RAM 48197 blobs, files 190608 blobs 371952.9 MB read
+strata serve: suffix drafts: 4 windows, 6 of 7 drafts accepted
+strata hs: 22560 ring-layers (99% with CPU rows; 3.37 rows/layer, 3.32 cold rows) ms per ring-layer: wait-for-ring 0.710 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.604, reduce 0.004, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.029 | host b->end 5.032
+strata hs: 23040 ring-layers (99% with CPU rows; 3.36 rows/layer, 3.31 cold rows) ms per ring-layer: wait-for-ring 0.709 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.568, reduce 0.004, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.872 | flag push 0.029 | host b->end 4.995
+strata pool stats (23000 calls, 10.68 experts/call, 1.683 ms/call incl memcpy 0.007):
+  rot/xq(7)  wall 0.044 = park-wait 0.000 + host-drain 0.035 + done-wait 0.008 + repark 0.000 ms/call (21.4 tasks)
+  gu(8)      wall 1.078 = park-wait 0.000 + host-drain 1.023 + done-wait 0.055 + repark 0.000 ms/call (106.8 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.7 tasks)
+  down(10)   wall 0.539 = park-wait 0.000 + host-drain 0.506 + done-wait 0.032 + repark 0.000 ms/call (106.8 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.011|23.5|1.523] w1[0.011|23.6|1.524] w2[0.011|23.4|1.521] w3[0.011|23.5|1.521] w4[0.011|23.5|1.522] w5[0.011|23.5|1.521] w6[0.011|23.4|1.522] w7[0.011|23.5|1.522] w8[0.011|23.4|1.519] H0[0.004|34.3|1.553]
+strata dispatch stats (23000 calls, 10.68 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.191, jobs(blob) 0.000, pool run 1.683 ms/call
+strata hs: 23520 ring-layers (99% with CPU rows; 3.36 rows/layer, 3.30 cold rows) ms per ring-layer: wait-for-ring 0.710 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.523, reduce 0.004, y push 0.433, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.029 | host b->end 4.950
+strata hs: 24000 ring-layers (99% with CPU rows; 3.32 rows/layer, 3.27 cold rows) ms per ring-layer: wait-for-ring 0.708 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.470, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.874 | flag push 0.030 | host b->end 4.893
+strata pool stats (24000 calls, 10.43 experts/call, 1.646 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.043 = park-wait 0.000 + host-drain 0.035 + done-wait 0.008 + repark 0.000 ms/call (20.9 tasks)
+  gu(8)      wall 1.054 = park-wait 0.000 + host-drain 0.999 + done-wait 0.055 + repark 0.000 ms/call (104.3 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.4 tasks)
+  down(10)   wall 0.527 = park-wait 0.000 + host-drain 0.494 + done-wait 0.032 + repark 0.000 ms/call (104.3 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|22.9|1.485] w1[0.012|23.1|1.486] w2[0.011|22.9|1.483] w3[0.012|22.9|1.483] w4[0.011|22.9|1.484] w5[0.011|22.9|1.483] w6[0.011|22.9|1.484] w7[0.011|22.9|1.484] w8[0.012|22.9|1.481] H0[0.004|33.6|1.517]
+strata dispatch stats (24000 calls, 10.43 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.122, jobs(blob) 0.000, pool run 1.646 ms/call
+strata hs: 24480 ring-layers (99% with CPU rows; 3.32 rows/layer, 3.26 cold rows) ms per ring-layer: wait-for-ring 0.709 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.427, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.875 | flag push 0.030 | host b->end 4.850
+strata hs: 24960 ring-layers (99% with CPU rows; 3.31 rows/layer, 3.26 cold rows) ms per ring-layer: wait-for-ring 0.711 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.385, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.873 | flag push 0.030 | host b->end 4.809
+strata pool stats (25000 calls, 10.23 experts/call, 1.615 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.042 = park-wait 0.000 + host-drain 0.034 + done-wait 0.008 + repark 0.000 ms/call (20.5 tasks)
+  gu(8)      wall 1.035 = park-wait 0.000 + host-drain 0.980 + done-wait 0.055 + repark 0.000 ms/call (102.3 tasks)
+  swiglu(9)  wall 0.015 = park-wait 0.000 + host-drain 0.012 + done-wait 0.003 + repark 0.000 ms/call (10.2 tasks)
+  down(10)   wall 0.517 = park-wait 0.000 + host-drain 0.485 + done-wait 0.032 + repark 0.000 ms/call (102.3 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|22.5|1.455] w1[0.012|22.6|1.454] w2[0.012|22.4|1.451] w3[0.012|22.5|1.451] w4[0.012|22.5|1.453] w5[0.011|22.5|1.452] w6[0.012|22.4|1.453] w7[0.012|22.5|1.453] w8[0.012|22.4|1.450] H0[0.004|33.0|1.487]
+strata dispatch stats (25000 calls, 10.23 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 2.059, jobs(blob) 0.000, pool run 1.616 ms/call
+strata hs: 25440 ring-layers (99% with CPU rows; 3.30 rows/layer, 3.25 cold rows) ms per ring-layer: wait-for-ring 0.711 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.343, reduce 0.004, y push 0.432, ple 0.022 | no-CPU-row layers tail 0.871 | flag push 0.030 | host b->end 4.767
+strata hs: 25920 ring-layers (99% with CPU rows; 3.29 rows/layer, 3.23 cold rows) ms per ring-layer: wait-for-ring 0.710 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.299, reduce 0.004, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.870 | flag push 0.031 | host b->end 4.720
+strata pool stats (26000 calls, 10.02 experts/call, 1.584 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.034 + done-wait 0.008 + repark 0.000 ms/call (20.0 tasks)
+  gu(8)      wall 1.015 = park-wait 0.000 + host-drain 0.960 + done-wait 0.055 + repark 0.000 ms/call (100.2 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (10.0 tasks)
+  down(10)   wall 0.507 = park-wait 0.000 + host-drain 0.475 + done-wait 0.032 + repark 0.000 ms/call (100.2 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|22.1|1.423] w1[0.012|22.2|1.422] w2[0.012|21.9|1.420] w3[0.012|22.0|1.420] w4[0.012|22.0|1.421] w5[0.012|22.0|1.420] w6[0.012|22.0|1.421] w7[0.012|22.0|1.421] w8[0.012|22.0|1.419] H0[0.004|32.4|1.457]
+strata dispatch stats (26000 calls, 10.02 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.999, jobs(blob) 0.000, pool run 1.584 ms/call
+strata hs: 26400 ring-layers (99% with CPU rows; 3.28 rows/layer, 3.22 cold rows) ms per ring-layer: wait-for-ring 0.710 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.257, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.874 | flag push 0.032 | host b->end 4.675
+strata hs: 26880 ring-layers (98% with CPU rows; 3.28 rows/layer, 3.22 cold rows) ms per ring-layer: wait-for-ring 0.711 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.219, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.878 | flag push 0.032 | host b->end 4.637
+strata hs: 27360 ring-layers (98% with CPU rows; 3.28 rows/layer, 3.22 cold rows) ms per ring-layer: wait-for-ring 0.712 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.188, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.877 | flag push 0.032 | host b->end 4.606
+strata pool stats (27000 calls, 9.87 experts/call, 1.561 ms/call incl memcpy 0.006):
+  rot/xq(7)  wall 0.041 = park-wait 0.000 + host-drain 0.033 + done-wait 0.008 + repark 0.000 ms/call (19.7 tasks)
+  gu(8)      wall 1.000 = park-wait 0.000 + host-drain 0.945 + done-wait 0.055 + repark 0.000 ms/call (98.7 tasks)
+  swiglu(9)  wall 0.014 = park-wait 0.000 + host-drain 0.011 + done-wait 0.003 + repark 0.000 ms/call (9.9 tasks)
+  down(10)   wall 0.499 = park-wait 0.000 + host-drain 0.467 + done-wait 0.032 + repark 0.000 ms/call (98.7 tasks)
+  threads (wake ms avg publish->first claim | claims/call | busy ms/call): w0[0.012|21.7|1.399] w1[0.012|21.8|1.399] w2[0.012|21.6|1.396] w3[0.012|21.7|1.396] w4[0.012|21.7|1.398] w5[0.012|21.7|1.397] w6[0.012|21.7|1.398] w7[0.012|21.7|1.397] w8[0.012|21.6|1.396] H0[0.004|31.9|1.434]
+strata dispatch stats (27000 calls, 9.87 cold experts/call): begin+plan 0.001, actq 0.000, prefetch 1.947, jobs(blob) 0.000, pool run 1.561 ms/call
+strata hs: 27840 ring-layers (98% with CPU rows; 3.27 rows/layer, 3.21 cold rows) ms per ring-layer: wait-for-ring 0.713 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.153, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.876 | flag push 0.032 | host b->end 4.570
+strata hs: 28320 ring-layers (98% with CPU rows; 3.27 rows/layer, 3.20 cold rows) ms per ring-layer: wait-for-ring 0.713 | ids+w pull 0.000, scan 0.000 | per COLD layer: x pull 0.000, pool 4.114, reduce 0.003, y push 0.431, ple 0.022 | no-CPU-row layers tail 0.877 | flag push 0.033 | host b->end 4.530
+strata decode timing: 119 windows, avg T 2.84, 2.08 tokens/window, 172.06 ms/window = verify 162.65 (GPU-reach wait 34.82 + per-layer host 123.24 [plan 0.06 actq 0.00 jobs 28.08 CPU 41.13] + stage 1.06) + commit/emit 0.82 + draft 8.58; per layer-window: CPU experts 5.21 (7.37 entries), VRAM hits 20.54, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2813 ms (12.4 tok/s), 248 generated in 20475 ms (12.1 tok/s), drafts accepted 130 of 219, 1 checkpoints
+strata serve: decode expert cache hit rate: 73.6% (117344 hits / 159430 lookups)
+strata serve: resident RAM: 4.28 GiB of experts in RAM, 0 exchanged with the VRAM tier, 211543 blob reads from the file
+strata serve: expert tiers: GPU 117344 hits this request; since the start RAM 60344 blobs, files 211543 blobs 410942.3 MB read
+DONE

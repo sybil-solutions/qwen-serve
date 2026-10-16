@@ -1,0 +1,115 @@
+--- orig-1012-g4/tgcu.py	2026-10-11 20:44:08
++++ $HOME/shim/tgcu.py	2026-10-11 21:47:04
+@@ -3,6 +3,9 @@
+ # batches and submits them on tinygrad's compute ring. Bulk copies go through tinygrad's USB copy path.
+ from __future__ import annotations
+ import struct, re, os, time, array
++_WAIT_S = float(os.getenv("TGCU_WAIT_S", "0"))       # diagnostic: raise the GPU-wait timeout (the default is the caller's, 10 s)
++HANG_HOOK = None                                    # set by tgcu_api: prints the handshake regions
++_HANG_DUMP = os.getenv("TGCU_HANG_DUMP") == "1"      # diagnostic: dump every thread + a native `sample` 8 s into a GPU wait
+ from tinygrad.runtime.support import usb as _usbmod
+ from dataclasses import dataclass, field
+ from tinygrad import Device
+@@ -149,6 +152,7 @@
+ 
+ class Context:
+   CTRL_SIZE, CODE_SIZE, MAPPED_SIZE = 32 << 20, 256 << 20, 48 << 20   # BAR1-visible pool is small
++  TRANSIENT = int(os.getenv("TGCU_TRANSIENT_BYTES", str(CTRL_SIZE // 2)))   # the transient half of the control arena (test knob: a small ring wraps often)
+ 
+   def __init__(self):
+     self.dev = Device["NV"]
+@@ -162,6 +166,8 @@
+     self.sem_va, self.sem_value = self.ctrl_va, 0
+     self.ctrl_mv[0:8] = bytes(8)
+     self.ctrl_head = 0x1000
++    self.seg_size = ((self.TRANSIENT - 0x1000) // 2) & ~0xff      # the transient ring is two segments used in turn
++    self.seg, self.seg_last, self.seg_touched = 0, [0, 0], set()   # current segment; the last submission (semaphore value) that read each; segments the submission being built has written
+     self.code = self.iface.alloc(self.CODE_SIZE)
+     self.code_va, self.code_head = self.code.buf, 0
+     self.allocs: dict[int, tuple[dict, int]] = {}   # va -> (chunk, bytes)
+@@ -361,11 +367,17 @@
+     return cmds
+ 
+   def _transient(self, size:int) -> int:
+-    # the transient half of the control arena is a ring; before wrapping, everything submitted must be done
+-    if round_up(self.ctrl_head, 0x100) + size > self.CTRL_SIZE // 2:
+-      self._wait(self.sem_value)
+-      self.ctrl_head = 0x1000
++    # The transient ring is two segments used in turn.  Entering a segment waits only for the submissions that last read it - all queued a whole segment ago, so
++    # never for the submission being built (its pushbuffer allocation lands here AFTER _pushbuf took its semaphore value: waiting for `sem_value` was a wait for
++    # a release that cannot be queued until this returns, a 10 s GPU timeout whenever a pushbuffer crossed the end of the ring) and never for a graph that
++    # still spins on a host handshake.
+     off = round_up(self.ctrl_head, 0x100)
++    if off + size > 0x1000 + (self.seg + 1) * self.seg_size:
++      assert size <= self.seg_size, f"transient allocation of {size} bytes does not fit a {self.seg_size} byte segment"
++      nxt = self.seg ^ 1
++      self._wait(self.seg_last[nxt])
++      self.seg, off = nxt, 0x1000 + nxt * self.seg_size
++    self.seg_touched.add(self.seg)
+     self.ctrl_head = off + round_up(size, 0x100)
+     return off
+ 
+@@ -382,6 +394,8 @@
+     put[0] = p + 1
+     fifo.gpput.host[0:4] = struct.pack("<I", (p + 1) % fifo.entries)
+     self.dev.gpu_mmio[0x90 // 4] = fifo.token # usermode doorbell in BAR0, a PCIe write over USB
++    for s in self.seg_touched: self.seg_last[s] = self.sem_value   # this submission (or a later one) is the last to read the segments it wrote
++    self.seg_touched.clear()
+ 
+   def flush(self, extra:list[int]|None=None):
+     if not self.pending:
+@@ -430,11 +444,53 @@
+       return True
+     return False
+   def event_time(self, slot:int) -> int: return struct.unpack_from("<Q", self.ctrl_mv[self.ev_off + 16 * slot + 8:self.ev_off + 16 * slot + 16])[0]
++
++  def _hang_dump(self, value:int):   # TGCU_HANG_DUMP=1 (diagnostic): the Python stacks of every thread, the semaphores, and a native `sample` of this process
++    import faulthandler, subprocess, sys
++    self.hang_n = getattr(self, "hang_n", 0) + 1
++    try:
++      ce = struct.unpack("<I", self.ace.mv[self.ace.sem_off:self.ace.sem_off + 4])[0]
++      print(f"[tgcu HANG] compute sem {struct.unpack('<Q', self.ctrl_mv[0:8])[0]} want {value} (submitted {self.sem_value}); CE sem {ce} (submitted {self.ace.sem_value}); last {self.last_launch}", file=sys.stderr, flush=True)
++    except Exception as e: print(f"[tgcu HANG] state read failed: {e}", file=sys.stderr, flush=True)
++    try:
++      off = self.ace.ENTRIES * 8 + getattr(onv.nv_gpu.AmpereAControlGPFifo, 'GPGet').offset
++      print(f"[tgcu HANG] CE gpget {struct.unpack_from('<I', self.ace.mv, off)[0]} put {self.ace.put % self.ace.ENTRIES}", file=sys.stderr, flush=True)
++    except Exception as e: print(f"[tgcu HANG] CE gpget failed: {e!r}", file=sys.stderr, flush=True)
++    try:
++      f = self.fifo; gp = onv.nv_gpu.AmpereAControlGPFifo
++      goff = f.gpput.offset - getattr(gp, 'GPPut').offset + getattr(gp, 'GPGet').offset
++      print(f"[tgcu HANG] compute gpget {struct.unpack_from('<I', self.dev.gpfifo_buf.host, goff)[0]} gpput {struct.unpack_from('<I', f.gpput.host, 0)[0]} put_value {f.put_value.as_memoryview(allow_zero_copy=True).cast('Q')[0]}", file=sys.stderr, flush=True)
++    except Exception as e: print(f"[tgcu HANG] compute gpget failed: {e!r}", file=sys.stderr, flush=True)
++    try:
++      t0 = time.perf_counter(); self.ace.d2h(self.ctrl_va, 16)
++      print(f"[tgcu HANG] CE probe (d2h 16 B of the control arena) ok in {(time.perf_counter() - t0) * 1e3:.1f} ms", file=sys.stderr, flush=True)
++    except Exception as e: print(f"[tgcu HANG] CE probe failed: {e!r}", file=sys.stderr, flush=True)
++    try:
++      nvg, dev = onv.nv_gpu, self.dev
++      se = dev.iface.rm_control(dev.debugger, nvg.NV83DE_CTRL_CMD_DEBUG_READ_ALL_SM_ERROR_STATES, nvg.NV83DE_CTRL_DEBUG_READ_ALL_SM_ERROR_STATES_PARAMS(hTargetChannel=dev.debug_channel, numSMsToRead=100))
++      print(f"[tgcu HANG] mmuFault.valid {se.mmuFault.valid}", file=sys.stderr, flush=True)
++      if se.mmuFault.valid:
++        mm = dev.iface.rm_control(dev.debugger, nvg.NV83DE_CTRL_CMD_DEBUG_READ_MMU_FAULT_INFO, nvg.NV83DE_CTRL_DEBUG_READ_MMU_FAULT_INFO_PARAMS())
++        for i in range(mm.count):
++          pf = mm.mmuFaultInfoList[i]
++          print(f"[tgcu HANG] MMU fault {i}: addr {pf.faultAddress:#x} type {pf.faultType} access {pf.accessType} engine {getattr(pf, 'faultEngine', '?')}", file=sys.stderr, flush=True)
++      for i, e in enumerate(se.smErrorStateArray):
++        if e.hwwGlobalEsr or e.hwwWarpEsr: print(f"[tgcu HANG] SM {i}: esr {e.hwwGlobalEsr} warp_esr {e.hwwWarpEsr:#x} pc {e.hwwWarpEsrPc64:#x}", file=sys.stderr, flush=True)
++    except Exception as e: print(f"[tgcu HANG] fault readout failed: {e!r}", file=sys.stderr, flush=True)
++    if HANG_HOOK is not None: HANG_HOOK()
++    faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
++    subprocess.Popen(["/usr/bin/sample", str(os.getpid()), "4", "-file", f"/tmp/tgcu_hang_{os.getpid()}_{self.hang_n}.sample"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+ 
+   def _wait(self, value:int, timeout_s:float=10.0):
++    timeout_s = max(timeout_s, _WAIT_S)
+     t0 = time.perf_counter()
++    dumped = False
+     while struct.unpack("<Q", self.ctrl_mv[0:8])[0] < value:
+-      if time.perf_counter() - t0 > timeout_s:
++      el = time.perf_counter() - t0
++      if el > 8.0 and not dumped and _HANG_DUMP:
++        dumped = True
++        self._hang_dump(value)
++      if el > timeout_s:
+         report = ""
+         try: self.dev.on_device_hang()   # raises with the MMU fault / SM error report read through GSP
+         except Exception as e: report = str(e)

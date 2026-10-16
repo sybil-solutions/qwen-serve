@@ -1,0 +1,27 @@
+== ls3 2026-10-12T00:18:35Z cfg=$HOME/shim/strata-exl3-full512-final-ls3s.json
+[strata] 2026-10-11 17:18:37 engine started: $HOME/shim/run-strata-lockstep.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7640 slots
+strata generate: expert cache 7640 slots, 13.25 GiB of VRAM; policy is
+strata generate: pre-filled 7640 of 7640 slots from the profile in 67.2 s (212 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.54 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 618 MiB of VRAM free with everything loaded
+READY
+3000 chars 1338 tokens 15345 ms 87.2 tok/s reply 'OK' wall 15.9
+-- prefill rows (2 each)
+10000 chars 3783 tokens 14419 ms 262.4 tok/s reply 'OK' wall 14.7
+10000 chars 3783 tokens 13410 ms 282.1 tok/s reply 'OK' wall 13.7
+25000 chars 8218 tokens 46861 ms 175.4 tok/s reply 'OK' wall 47.2
+25000 chars 8218 tokens 44984 ms 182.7 tok/s reply 'OK' wall 45.2
+55000 chars 17610 tokens 48490 ms 363.2 tok/s reply 'OK' wall 48.8
+55000 chars 17610 tokens 45189 ms 389.7 tok/s reply 'OK' wall 45.4
+-- exactness
+p1 5557 14845 ms "Strata is a technical documentation page detailing the engine's performance benchmarks, API usage, configuration settings, and internal mechanics for various hardware setups.\n## Speed (measured)"
+p2 7672 31354 ms "This document details the setup, performance benchmarks, and technical implementation of the Strata engine's SYCL port for Intel Arc GPUs, highlighting its ability to run large models efficiently with"
+-- decode
+{"i": 0, "wall_s": 38.0, "prompt_n": 29, "prompt_ms": 2368.5, "predicted_n": 300, "predicted_ms": 35637.3, "tok_s": 8.4, "drafts": "213/251", "pageins_mib": 32512, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 24.3, "prompt_n": 35, "prompt_ms": 2742.7, "predicted_n": 275, "predicted_ms": 21576.2, "tok_s": 12.7, "drafts": "139/235", "pageins_mib": 8390, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 32.6, "prompt_n": 29, "prompt_ms": 2965.8, "predicted_n": 272, "predicted_ms": 29651.3, "tok_s": 9.2, "drafts": "134/241", "pageins_mib": 15790, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+== done 2026-10-12T00:26:59Z

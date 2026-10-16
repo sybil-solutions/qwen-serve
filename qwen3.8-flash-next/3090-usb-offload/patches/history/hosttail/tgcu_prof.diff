@@ -1,0 +1,24 @@
+--- tgcu_prof.py.orig	2026-10-12 02:46:49.084536698 -0400
++++ tgcu_prof.py	2026-10-12 02:46:54.706489231 -0400
+@@ -19,7 +19,9 @@
+     finally:
+       dt = time.perf_counter() - t
+       depth.d = d
+-      s = stats.setdefault(name, [0, 0.0, 0]); s[0] += 1; s[1] += dt
++      s = stats.setdefault(name, [0, 0.0, 0, 0.0, 0]); s[0] += 1; s[1] += dt
++      if dt > s[3]: s[3] = dt
++      if dt > 0.005: s[4] += 1
+       if name in SIZED: s[2] += SIZED[name](a)
+       if top and d == 0: api_busy[0] += dt
+   return w
+@@ -27,8 +29,8 @@
+ def dump():
+   wall = time.perf_counter() - t_start
+   lines = [f"wall {wall:.1f} s  api {api_busy[0]:.1f} s  outside {wall - api_busy[0]:.1f} s"]
+-  for n, (c, t, b) in sorted(stats.items(), key=lambda kv: -kv[1][1]):
+-    lines.append(f"{n:28s} {c:9d} calls {t:9.3f} s {1e3 * t / max(c, 1):8.3f} ms/call" +
++  for n, (c, t, b, mx, slow) in sorted(stats.items(), key=lambda kv: -kv[1][1]):
++    lines.append(f"{n:28s} {c:9d} calls {t:9.3f} s {1e3 * t / max(c, 1):8.3f} ms/call  max {1e3 * mx:8.1f} ms  >5ms {slow:6d}" +
+                  (f"  {b / 1e6:9.1f} MB {b / max(c, 1) / 1e3:9.1f} KB/call {b / 1e6 / max(t, 1e-9):7.1f} MB/s" if b else ""))
+   import sys
+   tg = sys.modules.get("tgcu")

@@ -1,0 +1,329 @@
+--- /tmp/orig_expert_source.cpp	2026-10-11 16:25:43.594818736 -0400
++++ $HOME/sessions/cdl/expert_source.cpp	2026-10-11 16:28:06.119206952 -0400
+@@ -36,6 +36,7 @@
+ #include <functional>
+ #include <utility>
+ #include <vector>
++#include <unordered_map>
+ 
+ #if defined(_WIN32)
+ #define WIN32_LEAN_AND_MEAN
+@@ -48,6 +49,9 @@
+ #include <sys/mman.h>
+ #include <sys/stat.h>
+ #include <unistd.h>
++#if defined(__APPLE__)
++#include <dlfcn.h>
++#endif
+ #endif
+ #if defined(__linux__)
+ #include <cerrno>
+@@ -1338,10 +1342,12 @@
+             const size_t i = next.fetch_add(1);
+             if (i >= n) return;
+             const auto& j = (*jobs)[i];
+-            if (scratch.size() < j.second) scratch.resize((size_t) j.second);
++            uint8_t* buf;
++            if (has_dst) buf = own_dst[i];   // STRATA_EXL3_METAL: straight into the Metal lane's registered slot
++            else { if (scratch.size() < j.second) scratch.resize((size_t) j.second); buf = scratch.data(); }
+             uint64_t got = 0;
+             while (got < j.second) {
+-                const ssize_t r = ::pread(fd, scratch.data() + got, (size_t) (j.second - got), (off_t) (j.first + got));
++                const ssize_t r = ::pread(fd, buf + got, (size_t) (j.second - got), (off_t) (j.first + got));
+                 if (r <= 0) break;
+                 got += (uint64_t) r;
+             }
+@@ -1364,13 +1370,15 @@
+             });
+     }
+     std::vector<std::pair<uint64_t, uint64_t>> own;
++    std::vector<uint8_t*> own_dst;
++    bool has_dst = false;
+     bool active = false;
+     void begin(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j) {   // start, do not wait (finish() joins)
+         finish();
+         if (j.empty()) return;
+         {
+             std::lock_guard<std::mutex> lk(mu);
+-            own = j; jobs = &own; fd = fd_; n = own.size(); next.store(0); completed.store(0); ++gen; active = true;
++            own = j; has_dst = false; jobs = &own; fd = fd_; n = own.size(); next.store(0); completed.store(0); ++gen; active = true;
+         }
+         cv.notify_all();
+     }
+@@ -1382,6 +1390,16 @@
+         active = false;
+     }
+     void run(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j) { begin(fd_, j); finish(); }
++    void run_to(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j, const std::vector<uint8_t*>& dst) {   // each job into its own buffer
++        finish();
++        if (j.empty()) return;
++        {
++            std::lock_guard<std::mutex> lk(mu);
++            own = j; own_dst = dst; has_dst = true; jobs = &own; fd = fd_; n = own.size(); next.store(0); completed.store(0); ++gen; active = true;
++        }
++        cv.notify_all();
++        finish();
++    }
+ };
+ MacPull& mac_pull() {
+     static MacPull* p = [] { auto* q = new MacPull; int nt = 7; if (const char* e = std::getenv("STRATA_MAC_PULL_THREADS")) nt = std::max(1, std::atoi(e)); q->start(nt); return q; }();
+@@ -1458,6 +1476,150 @@
+ #endif
+ 
+ #if defined(__APPLE__)
++namespace {
++// STRATA_EXL3_METAL=1: the layer's CPU experts (EXL3 slim doorbell, verify.cpp arms the weights + the output rows) run on the Apple GPU
++// through libexl3metal (dlopen, plain C API) instead of the NEON pool.  Blobs are read IN PLACE: the locked RAM tier is registered once
++// as a NoCopy region, every other expert is pread whole (on the MacPull threads) into a registered slot ring.  y = sum_j w_j expert_j(x)
++// per row, the same quantity verify.cpp's reduce loop builds from the pool's per-pair rows.
++struct MetalLane {
++    void* lib = nullptr;
++    void* ctx = nullptr;
++    bool tried = false, ok = false, comp_reg = false;
++    int64_t (*reg)(void*, const void*, size_t) = nullptr;
++    int (*rows)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*) = nullptr;
++    const char* (*lasterr)() = nullptr;
++    uint8_t* slots = nullptr;
++    size_t stride = 0;
++    int nslots = 64;
++    const float* w = nullptr;     // armed by verify.cpp for one pool call: the window's routing weights [n x k] and the output rows [n x 2560]
++    float* y = nullptr;
++    bool taken = false, gather = false;
++    std::atomic<int64_t> last_us{0};
++    bool ramonly = std::getenv("STRATA_EXL3_METAL_RAMONLY") != nullptr && std::atoi(std::getenv("STRATA_EXL3_METAL_RAMONLY")) != 0;
++    std::unordered_map<int64_t, int> where;   // (layer * n_expert + e) -> slot of the LRU (STRATA_EXL3_METAL_SLOTS slots, default 64 = the plain ring)
++    std::vector<uint32_t> stamp;
++    std::vector<int64_t> key;
++    uint32_t seq = 0;
++    int64_t lru_hits = 0, lru_miss = 0;
++    const uint8_t* ptrs[128] = {};
++    double ms_gather = 0, ms_metal = 0; int64_t calls = 0, experts = 0, fallbacks = 0;
++};
++MetalLane& ml() { static MetalLane m; return m; }
++bool ml_enabled() {
++    static const bool on = std::getenv("STRATA_EXL3_METAL") != nullptr && std::atoi(std::getenv("STRATA_EXL3_METAL")) != 0;
++    return on;
++}
++bool ml_init(MetalLane& M) {
++    if (M.tried) return M.ok;
++    M.tried = true;
++    std::string path = std::getenv("STRATA_EXL3_METAL_LIB") ? std::getenv("STRATA_EXL3_METAL_LIB")
++                                                             : std::string(std::getenv("HOME") ? std::getenv("HOME") : "") + "/exl3/metal/libexl3metal.dylib";
++    M.lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
++    if (M.lib == nullptr) { std::fprintf(stderr, "strata exl3-metal: dlopen %s failed: %s\n", path.c_str(), dlerror()); return false; }
++    auto create = (void* (*)(int, int)) dlsym(M.lib, "exl3m_create");
++    M.reg = (int64_t (*)(void*, const void*, size_t)) dlsym(M.lib, "exl3m_register");
++    M.rows = (int (*)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*)) dlsym(M.lib, "exl3m_moe_rows");
++    M.lasterr = (const char* (*)()) dlsym(M.lib, "exl3m_last_error");
++    if (!create || !M.reg || !M.rows || !M.lasterr) { std::fprintf(stderr, "strata exl3-metal: missing symbols in %s\n", path.c_str()); return false; }
++    M.ctx = create(0, 2);
++    if (M.ctx == nullptr) { std::fprintf(stderr, "strata exl3-metal: exl3m_create failed: %s\n", M.lasterr()); return false; }
++    if (const char* ev = std::getenv("STRATA_EXL3_METAL_SLOTS")) M.nslots = std::max(64, std::min(4096, std::atoi(ev)));
++    M.stamp.assign((size_t) M.nslots, 0u);
++    M.key.assign((size_t) M.nslots, (int64_t) -1);
++    M.stride = ((size_t) 1862400 + 16383) & ~(size_t) 16383;
++    void* s = mmap(nullptr, M.stride * (size_t) M.nslots, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
++    if (s == MAP_FAILED) { std::fprintf(stderr, "strata exl3-metal: slot mmap failed\n"); return false; }
++    M.slots = (uint8_t*) s;
++    std::memset(M.slots, 0, M.stride * (size_t) M.nslots);
++    (void) mlock(M.slots, M.stride * (size_t) M.nslots);
++    if (M.reg(M.ctx, M.slots, M.stride * (size_t) M.nslots) <= 0) { std::fprintf(stderr, "strata exl3-metal: slot registration failed: %s\n", M.lasterr()); return false; }
++    std::fprintf(stderr, "strata exl3-metal: lane ready (%s; %d slots of %zu B registered)\n", path.c_str(), M.nslots, M.stride);
++    M.ok = true;
++    static const bool ka_on = [] { const char* v = std::getenv("STRATA_EXL3_METAL_KEEPALIVE"); return v == nullptr || std::atoi(v) != 0; }();
++    if (ka_on) {   // an idle Apple GPU clocks down between the 48 layer calls of a window (measured: 3 ms gaps turn a 0.75 ms call into 1.9 ms); one-expert calls back to back while requests run keep it up
++        std::thread([&M] {
++            float x[2560] = {}, y[2560];
++            int32_t e = 0, r = 0;
++            float w = 1.0f;
++            const void* bp[1] = {M.slots};
++            for (;;) {
++                const int64_t now = (int64_t) std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
++                if (now - M.last_us.load(std::memory_order_relaxed) < 200000) (void) M.rows(M.ctx, x, 1, 1, &e, &r, &w, bp, y);
++                else usleep(2000);
++            }
++        }).detach();
++    }
++    return true;
++}
++}  // namespace
++// verify.cpp: arm the weights + output rows of the next pool call; after it, ask whether the Metal lane produced the reduced rows
++extern "C" void strata_exl3_metal_arm(const float* w, float* y) {
++    if (!ml_enabled()) return;
++    MetalLane& M = ml();
++    M.w = w; M.y = y; M.taken = false;
++}
++extern "C" int strata_exl3_metal_taken() {
++    if (!ml_enabled()) return 0;
++    MetalLane& M = ml();
++    const bool t = M.taken;
++    M.taken = false; M.w = nullptr; M.y = nullptr;
++    return t ? 1 : 0;
++}
++// 1+: distinct experts computed (rows written to M.y); 0: not handled (the NEON pool takes the layer); -1: d.failed set
++static int exl3_metal_lane(ExpertDispatch& d, const float* x_f, const int32_t* ids, int64_t n_tok, int64_t k, const int32_t* kind,
++                           double& ms_gather, double& ms_metal) {
++    MetalLane& M = ml();
++    if (M.w == nullptr || M.y == nullptr || !ml_enabled() || !ml_init(M) || n_tok > 8) return 0;
++    const int64_t n = n_tok * k;
++    int32_t eidx[128], ridx[128];
++    float wt[128];
++    int64_t distinct[128];
++    int np = 0, nd = 0;
++    for (int64_t i = 0; i < n && i < 128; ++i) {
++        if (kind[i] >= 0) continue;
++        const int64_t e = ids[i];
++        if (e < 0 || e >= d.n_expert) {
++            d.failed = true; d.fail = "a routed expert id is out of range"; d.fail_layer = d.layers; d.fail_expert = e;
++            return -1;
++        }
++        int di = -1;
++        for (int q = 0; q < nd; ++q) if (distinct[q] == e) { di = q; break; }
++        if (di < 0) { di = nd; distinct[nd++] = e; }
++        eidx[np] = di; ridx[np] = (int32_t) (i / k); wt[np] = M.w[i]; ++np;
++    }
++    if (np == 0 || nd > M.nslots) return 0;
++    const auto t0 = std::chrono::steady_clock::now();
++    M.gather = true;
++    d.src->prefetch(d.layers, distinct, nd);   // FileExpertSource::prefetch in gather mode fills M.ptrs
++    M.gather = false;
++    for (int q = 0; q < nd; ++q) if (M.ptrs[q] == nullptr) { ++M.fallbacks; return 0; }
++    const auto t1 = std::chrono::steady_clock::now();
++    const int rc = M.rows(M.ctx, x_f, (int) n_tok, np, eidx, ridx, wt, (const void* const*) M.ptrs, M.y);
++    const auto t2 = std::chrono::steady_clock::now();
++    if (rc != 0) {
++        static int warned = 0;
++        if (warned++ < 5) std::fprintf(stderr, "strata exl3-metal: exl3m_moe_rows failed (%d): %s; NEON pool takes the layer\n", rc, M.lasterr());
++        ++M.fallbacks;
++        return 0;
++    }
++    ms_gather = std::chrono::duration<double, std::milli>(t1 - t0).count();
++    ms_metal = std::chrono::duration<double, std::milli>(t2 - t1).count();
++    M.taken = true;
++    M.last_us.store((int64_t) std::chrono::duration_cast<std::chrono::microseconds>(t2.time_since_epoch()).count(), std::memory_order_relaxed);
++    M.ms_gather += ms_gather; M.ms_metal += ms_metal; M.experts += nd;
++    static const bool pstats = std::getenv("STRATA_POOL_STATS") != nullptr;
++    if (++M.calls % 1000 == 0 && pstats)
++        std::fprintf(stderr, "strata exl3-metal: %lld calls, %.2f experts/call, gather %.3f ms, metal %.3f ms per call, %lld fallbacks, slot LRU %lld hits / %lld misses (%d slots)\n",
++                     (long long) M.calls, (double) M.experts / (double) M.calls, M.ms_gather / (double) M.calls, M.ms_metal / (double) M.calls, (long long) M.fallbacks, (long long) M.lru_hits, (long long) M.lru_miss, M.nslots);
++    return nd;
++}
++#else
++extern "C" void strata_exl3_metal_arm(const float*, float*) {}
++extern "C" int strata_exl3_metal_taken() { return 0; }
++static int exl3_metal_lane(ExpertDispatch&, const float*, const int32_t*, int64_t, int64_t, const int32_t*, double&, double&) { return 0; }
++#endif
++
++#if defined(__APPLE__)
+ // verify.cpp calls strata_mac_pull_begin the moment a ring's ids are known (before it queues the CE push): the cold experts' reads
+ // start on the pull threads and overlap that USB work; FileExpertSource::prefetch joins them (and reads whatever is still missing)
+ static std::function<void(int64_t, const int64_t*, int64_t)> g_pull_begin;
+@@ -1470,6 +1632,82 @@
+ #endif
+ 
+ void FileExpertSource::prefetch(int64_t layer, const int64_t* experts, int64_t n) {
++#if defined(__APPLE__)
++    if (ml().gather) {   // STRATA_EXL3_METAL: hand out in-place blob pointers for the Metal lane (resident tier) or whole-blob preads into its registered slots
++        MetalLane& M = ml();
++        static thread_local std::vector<std::pair<uint64_t, uint64_t>> gjobs;
++        static thread_local std::vector<uint8_t*> gdst;
++        gjobs.clear(); gdst.clear();
++        ++M.seq;
++        const int pfd = (base_ != nullptr && !paths_.empty() && role_ptr_.empty() && !io_pf_ && direct_.empty() && layer >= 0 && layer < n_layers_)
++                            ? mac_pull_fd(paths_.front()) : -1;
++        int si = 0;
++        for (int64_t i = 0; i < n && i < 128; ++i) {
++            M.ptrs[i] = nullptr;
++            const int64_t e = experts[i];
++            if (e < 0 || e >= n_expert_ || layer < 0 || layer >= n_layers_) continue;
++            const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) e;
++            if (complement_ready_) {
++                if (const uint8_t* r = resident_blob(index)) {
++                    if (!M.comp_reg) {
++                        M.comp_reg = true;
++                        const int64_t rr = M.reg(M.ctx, complement_host_, (size_t) complement_bytes_);
++                        std::fprintf(stderr, "strata exl3-metal: locked RAM tier registered: %lld bytes\n", (long long) rr);
++                    }
++                    M.ptrs[i] = r;
++                    continue;
++                }
++            }
++            if (M.ramonly) { M.ptrs[i] = nullptr; return; }   // STRATA_EXL3_METAL_RAMONLY: only layers whose cold experts all sit in the registered locked tier go to Metal (no copy); the rest stay on the NEON pool
++            if (!override_.empty() && override_[index] != nullptr) continue;
++            const uint8_t* p = mapped_blob(layer, e);
++            if (p == nullptr || pfd < 0) continue;
++            const uint64_t bytes = layer_blob_bytes_[(size_t) layer];
++            if (bytes > M.stride) continue;
++            uint8_t* dst = nullptr;
++            {   // the slot region is an LRU cache of (layer, expert) -> registered slot: a hit is read in place by the GPU with no copy at all
++                const auto hit = M.where.find((int64_t) index);
++                if (hit != M.where.end()) {
++                    const int s = hit->second;
++                    M.stamp[(size_t) s] = M.seq;
++                    M.ptrs[i] = M.slots + (size_t) s * M.stride;
++                    ++M.lru_hits;
++                    continue;
++                }
++                int vs = -1;
++                uint32_t best = 0xffffffffu;
++                for (int s = 0; s < M.nslots; ++s)
++                    if (M.stamp[(size_t) s] != M.seq && M.stamp[(size_t) s] < best) { best = M.stamp[(size_t) s]; vs = s; }
++                if (vs < 0) continue;   // every slot belongs to this call
++                if (M.key[(size_t) vs] >= 0) M.where.erase(M.key[(size_t) vs]);
++                M.key[(size_t) vs] = (int64_t) index;
++                M.where[(int64_t) index] = vs;
++                M.stamp[(size_t) vs] = M.seq;
++                dst = M.slots + (size_t) vs * M.stride;
++                ++M.lru_miss;
++            }
++            {   // a blob whose pages are all in the file cache is a memcpy (kernel copy-out is ~2-3 GB/s per thread): split it across the threads; an uncached one is one sequential SSD read
++                static const int nchunk = [] { const char* ev = std::getenv("STRATA_EXL3_METAL_CHUNKS"); return std::max(1, ev ? std::atoi(ev) : 8); }();
++                const uintptr_t pg = 16384, a = (uintptr_t) p & ~(pg - 1);
++                const size_t len = (size_t) ((uintptr_t) p + bytes - a), npg = (len + pg - 1) / pg;
++                char vec[512];
++                bool cached = npg <= sizeof vec && mincore((void*) a, len, vec) == 0;
++                for (size_t q = 0; cached && q < npg; ++q) if (!(vec[q] & 1)) cached = false;
++                const uint64_t off0 = (uint64_t) (p - base_);
++                if (cached && nchunk > 1) {
++                    const uint64_t cb = ((bytes / (uint64_t) nchunk) + 4095) & ~(uint64_t) 4095;
++                    for (uint64_t o = 0; o < bytes; o += cb) { gjobs.emplace_back(off0 + o, std::min<uint64_t>(cb, bytes - o)); gdst.push_back(dst + o); }
++                } else {
++                    gjobs.emplace_back(off0, bytes);
++                    gdst.push_back(dst);
++                }
++            }
++            M.ptrs[i] = dst;
++        }
++        if (!gjobs.empty()) mac_pull().run_to(pfd, gjobs, gdst);
++        return;
++    }
++#endif
+     if (!staged() || n <= 0 || layer < 0 || layer >= n_layers_) {
+ #if defined(__APPLE__)
+         if (mac_pull_on() && n > 0 && layer >= 0 && layer < n_layers_ && role_ptr_.empty() && !io_pf_ && direct_.empty() && base_ != nullptr && !paths_.empty()) {
+@@ -3540,6 +3778,25 @@
+     for (int64_t i = 0; i < n; ++i)
+         if (kind[i] < 0) { any_cpu = true; break; }
+     const auto c1 = std::chrono::steady_clock::now();
++    if (any_cpu && exl3 && d.remote_count == 0 && d.peer == nullptr) {   // STRATA_EXL3_METAL: the Apple GPU computes the CPU experts of a slim doorbell layer
++        double mlg = 0, mlm = 0;
++        const int nd = exl3_metal_lane(d, x_f, ids, n_tok, k, kind, mlg, mlm);
++        if (nd < 0) return;
++        if (nd > 0) {
++            for (int64_t i = 0; i < n; ++i) {
++                if (kind[i] < 0) { ++d.cache_refused; ++d.multi_entries; }
++                else if (kind[i] == 0) ++d.cache_hits;
++                else ++d.offload_entries;
++            }
++            d.ms_plan += std::chrono::duration<double, std::milli>(c1 - c0).count();
++            d.ms_jobs += mlg;
++            d.ms_run += mlm;
++            d.multi_misses += nd;
++            ++d.layers;
++            d.experts += n_tok * k;
++            return;
++        }
++    }
+     if (any_cpu) {
+         // #578 --remote-expert-opt: a token whose experts all run on a GPU (CUDA0 or a helper) needs no CPU activation
+         const bool ep = d.remote_count > 0 && d.remote[0]->optimized_decode();

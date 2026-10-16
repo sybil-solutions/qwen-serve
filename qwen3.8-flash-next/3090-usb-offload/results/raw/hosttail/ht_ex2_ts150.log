@@ -1,0 +1,18 @@
+== ht_ex2 ts150 2026-10-12T07:22:14Z
+[strata] 2026-10-12 00:22:16 engine started: /Users/sero/shim/run-strata.sh --serve --pack /Users/sero/exl3/pack_full512 --native /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile /Users/sero/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp /Users/sero/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 0.2 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile /Users/sero/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 63.7 s (216 MB/s); slot 0 verified
+strata exl3-metal: lane ready (/Users/sero/exl3/metal/libexl3metal_ht.dylib; 5600 slots of 1867776 B registered)
+strata exl3-metal: LRU preloaded with 5600 of 5600 slots by profile rank in 4.8 s (10.46 GB, F_NOCACHE)
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 716 MiB of VRAM free with everything loaded
+READY
+24000 chars 7901 tokens 21242 ms 372.0 tok/s md5 155d645ca7 'The main topic is the technical documentation for the Strata'
+10000 chars 3779 tokens 15712 ms 240.5 tok/s md5 6ad3c0fb4a 'The main topic is the technical details, performance benchma'
+24000 chars 7905 tokens 16763 ms 471.6 tok/s reply 'OK' wall 17.0
+24000 chars 7905 tokens 16476 ms 479.8 tok/s reply 'OK' wall 16.6
+exact8k IDENTICAL
+exact4k IDENTICAL
+== done 2026-10-12T07:25:47Z

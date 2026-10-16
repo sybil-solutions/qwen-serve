@@ -1,0 +1,37 @@
+diff --git a/tools/vision/CMakeLists.txt b/tools/vision/CMakeLists.txt
+index d6518c7..e7f2e63 100644
+--- a/tools/vision/CMakeLists.txt
++++ b/tools/vision/CMakeLists.txt
+@@ -14,6 +14,7 @@ project(strata_vision C CXX)
+ 
+ set(LLAMA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../third_party/llama.cpp" CACHE PATH "llama.cpp checkout")
+ option(STRATA_VISION_CUDA "run the vision encoder on the GPU (builds ggml-cuda)" OFF)
++option(STRATA_VISION_METAL "run the vision encoder on the Apple GPU (builds ggml-metal; macOS arm64)" OFF)
+ option(STRATA_PORTABLE "build for other PCs: AVX2 baseline, static MSVC runtime" ON)
+ if(STRATA_PORTABLE AND MSVC)
+   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
+@@ -52,6 +53,11 @@ else()
+ endif()
+ set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
+ set(GGML_CUDA ${STRATA_VISION_CUDA} CACHE BOOL "" FORCE)
++set(GGML_METAL ${STRATA_VISION_METAL} CACHE BOOL "" FORCE)
++if(APPLE)
++  set(GGML_OPENMP OFF CACHE BOOL "" FORCE)         # Apple clang has no OpenMP; ggml uses its own thread pool
++  set(GGML_ACCELERATE ON CACHE BOOL "" FORCE)
++endif()
+ 
+ add_subdirectory(${LLAMA_DIR} llama EXCLUDE_FROM_ALL)
+ 
+diff --git a/tools/vision/strata_vision.cpp b/tools/vision/strata_vision.cpp
+index d8ef58f..de6971c 100644
+--- a/tools/vision/strata_vision.cpp
++++ b/tools/vision/strata_vision.cpp
+@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
+     llama_backend_init();
+ 
+     const auto load_t0 = std::chrono::steady_clock::now();
+-#if !defined(_WIN32)
++#if defined(__linux__)   // posix_fadvise does not exist on macOS (the Mac build reads the mmproj through the page cache as is)
+     // ask the OS for the projector file up front (128 KiB steps) so the loader's sequential reads find it cached;
+     // STRATA_READ_AHEAD=0 turns it off, as in the engine
+     if (const char* ra = std::getenv("STRATA_READ_AHEAD"); ra == nullptr || std::atoi(ra) != 0) {

@@ -1,0 +1,6 @@
+# sha256 of the EXL3 engine fatbins DEPLOYED on the Mac mini (read with shasum on 2026-10-12), nvcc 13.4.92, -arch=sm_86, flags of exl3/build.sh.
+# exl3_strata.fatbin embeds a path-dependent id: it only comes out identical when built from /Users/sero/exl3 (checked 2026-10-12:
+# /Users/sero/exl3 -> d19f0e17..., /build/exl3 -> 82e480e5...; the other two do not depend on the path). The Docker build builds at /Users/sero/exl3.
+d19f0e1726b7c0345303dc454ad3f2f6981813145002be1028b06a7f4c76f6b4  exl3_strata.fatbin
+bb7099baba60cb8b90df42ce1f9380e7429bd4818817fe816c70b26018f711f6  exl3_strata_recon.fatbin
+8baedf9c80bdee40cea9face5b7e1f84d1b01132a8ff01398443824c5670a029  exl3_strata_pf.fatbin

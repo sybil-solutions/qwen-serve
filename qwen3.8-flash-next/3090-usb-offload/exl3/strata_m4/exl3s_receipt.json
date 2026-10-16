@@ -1,0 +1,52 @@
+{
+ "layer": 24,
+ "cases": [
+  {
+   "rows": 1,
+   "hits": 7,
+   "misses": 3,
+   "rel_rms": 0.0008195018462299229,
+   "max_err_over_rms": 0.0028961270750437105,
+   "groups_identical": true,
+   "repeat_identical": true,
+   "us_per_layer": 130.0,
+   "pass": true,
+   "dequant_gu_rel_rms": 0.000931232131236271,
+   "dequant_d_rel_rms": 0.0009317092973415439
+  },
+  {
+   "rows": 3,
+   "hits": 24,
+   "misses": 6,
+   "rel_rms": 0.0007729292320933041,
+   "max_err_over_rms": 0.0033684358167517703,
+   "groups_identical": true,
+   "repeat_identical": true,
+   "us_per_layer": 176.0,
+   "pass": true
+  },
+  {
+   "rows": 5,
+   "hits": 35,
+   "misses": 15,
+   "rel_rms": 0.0007932570095211348,
+   "max_err_over_rms": 0.004329786169705502,
+   "groups_identical": true,
+   "repeat_identical": true,
+   "us_per_layer": 185.6,
+   "pass": true
+  },
+  {
+   "rows": 8,
+   "hits": 60,
+   "misses": 20,
+   "rel_rms": 0.0008094753515324628,
+   "max_err_over_rms": 0.004204800148041688,
+   "groups_identical": true,
+   "repeat_identical": true,
+   "us_per_layer": 237.9,
+   "pass": true
+  }
+ ],
+ "ok": true
+}

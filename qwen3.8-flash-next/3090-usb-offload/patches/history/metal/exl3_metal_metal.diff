@@ -1,0 +1,27 @@
+--- metal/exl3_metal.metal.orig	2026-10-11 22:41:28.922526000 -0400
++++ metal/exl3_metal.metal	2026-10-11 22:41:35.567039380 -0400
+@@ -304,3 +304,24 @@
+   const ulong yi = (ulong)touched[ti] * H + col;
+   y[yi] = y[yi] + acc;
+ }
++
++// fp16-I/O prefill (pf500): the same rotation with the input rows already fp16 (the kernel rounds x to fp16 first anyway: bit-identical to rot_in_pf on fp16-representable x)
++kernel void rot_in_pf_h(device const half* x [[buffer(0)]], device const UnitP* units [[buffer(1)]], device const uint* unit_of_row [[buffer(2)]],
++                        device const int* src_row [[buffer(3)]], device half* A [[buffer(4)]], constant PP& p [[buffer(5)]],
++                        uint3 tg [[threadgroup_position_in_grid]], uint i [[thread_index_in_threadgroup]]) {
++  threadgroup float buf[128];
++  const uint blk = tg.x, pr = tg.y, proj = tg.z, col = blk * 128u + i;
++  half a = x[(ulong)src_row[pr] * H + col];
++  half s = ((device const half*)(units[unit_of_row[pr]].blob + (proj ? O_USUH : O_GSUH)))[col];
++  float v = fwht128((float)(half)((float)a * (float)s), i, buf);
++  A[((ulong)proj * p.cap + pr) * H + col] = (half)(v * R_SCALE);
++}
++
++// the fp32 accumulated rows -> fp16 (what the host's clamp + _Float16 cast did): clamp to +-65504 (NaN passes), round to nearest even
++kernel void y_f2h(device const float* y [[buffer(0)]], device half* yh [[buffer(1)]], constant uint& n [[buffer(2)]], uint i [[thread_position_in_grid]]) {
++  if (i < n) {
++    float v = y[i];
++    v = v > 65504.0f ? 65504.0f : (v < -65504.0f ? -65504.0f : v);
++    yh[i] = (half)v;
++  }
++}

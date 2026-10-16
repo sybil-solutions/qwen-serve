@@ -1,0 +1,171 @@
+--- src/verify.cpp.orig	2026-10-11 14:26:38.235349000 -0400
++++ src/verify.cpp	2026-10-11 15:26:01.105665356 -0400
+@@ -60,6 +60,7 @@
+ #include <exception>
+ #include <immintrin.h>
+ 
++extern "C" void strata_mac_pull_begin(int64_t layer, const int64_t* experts, int64_t n);
+ namespace strata::core {
+ namespace {
+ 
+@@ -2110,7 +2111,26 @@
+             *flag = 1;
+             strata::tgcu::push(h_flag_, 4);
+         }
+-    } else
++    } else {
++    // STRATA_HS_PRE=1 (EXL3 slim doorbell on tgcu): the doorbell payload (x rows, ids, w) is fetched by a copy-engine job armed
++    // BEFORE the ring and gated on the ring word, and the CPU rows + flag go back as one gated job queued before the CPU computes
++    static const bool hs_pre_env = std::getenv("STRATA_HS_PRE") != nullptr && std::atoi(std::getenv("STRATA_HS_PRE")) != 0;
++    const bool hs_pre = hs_pre_env && slim_run && !test_stall;
++    bool hs_armed = false;
++    auto hs_ring_segs = [&](int64_t kk, void** ps, size_t* ns) {
++        const int gg = (int) (kk % G);
++        const int tb_ = gtb[gg], n_ = gte[gg] - gtb[gg];
++        const int64_t K2 = ss.k, N2 = g.n_embd;
++        ps[0] = h_x_ + (size_t) tb_ * N2; ps[1] = h_ids_ + (size_t) tb_ * K2; ps[2] = h_w_ + (size_t) tb_ * K2;
++        ns[0] = (size_t) n_ * N2 * sizeof(float); ns[1] = (size_t) n_ * K2 * 4; ns[2] = (size_t) n_ * K2 * 4;
++    };
++    auto hs_arm_ring = [&](int64_t kk) -> bool {
++        void* ps[3]; size_t ns[3];
++        hs_ring_segs(kk, ps, ns);
++        return strata::tgcu::hs_arm(ps, ns, 3, (const void*) h_seq_, (unsigned) (kk + 1)) == 0;
++    };
++    static const bool hs_defer = std::getenv("STRATA_HS_DEFER") != nullptr && std::atoi(std::getenv("STRATA_HS_DEFER")) != 0;
++    if (hs_pre) hs_armed = hs_arm_ring(0);
+     for (int64_t k = 0; k < steps; ++k) {
+         const int64_t l = mxon ? (int64_t) db_layers_[(size_t) (k / G)] : lb_ + k / G;
+         const int grp = (int) (k % G);
+@@ -2119,6 +2139,16 @@
+         auto last_flush = a;
+         uint32_t spins = 0;
+         progress_at("verify window: waiting for the GPU to reach layer", l);
++        bool hs_got = false;
++        if (hs_armed) {
++            hs_armed = false;
++            hs_got = true;
++            if (strata::tgcu::hs_wait(20000) != 0) {
++                trace_ev("TIMEOUT", k, l, (int64_t) cudaStreamQuery(cs_));
++                err = "verify: timed out at layer " + std::to_string(l) + released_note(release_gpu_waits(5000));
++                return false;
++            }
++        } else
+         while ((strata::tgcu::pull(h_seq_, 4), *seq < want)) {
+             _mm_pause();
+             if ((++spins & 1023u) != 0) continue;
+@@ -2157,11 +2187,13 @@
+         if (slim_run) {   // EXL3 slim doorbell: ids + w, then x only for the rows with CPU experts, one reduced block back
+             const int64_t K_ = ss.k, N_ = g.n_embd, ne_ = g.n_expert;
+             static const bool hs_trace = std::getenv("STRATA_HS_TRACE") != nullptr;
+-            static double hs[8] = {}; static int64_t hs_n = 0;
++            static double hs[12] = {}; static int64_t hs_n = 0, hs_cold = 0, hs_rows = 0, hs_crows = 0;
+             auto hs_now = [] { return std::chrono::duration<double, std::milli>(Clock::now().time_since_epoch()).count(); };
+             const double hs0 = hs_now();
+-            strata::tgcu::pull(h_ids_ + (size_t) tb * K_, (size_t) n * K_ * 4);
+-            strata::tgcu::pull(h_w_ + (size_t) tb * K_, (size_t) n * K_ * 4);
++            if (!hs_got) {
++                strata::tgcu::pull(h_ids_ + (size_t) tb * K_, (size_t) n * K_ * 4);
++                strata::tgcu::pull(h_w_ + (size_t) tb * K_, (size_t) n * K_ * 4);
++            }
+             const double hs1 = hs_now();
+             const int32_t* ids = h_ids_ + (size_t) tb * K_;
+             int r0 = -1, r1 = -1;
+@@ -2174,14 +2206,41 @@
+                         break;
+                     }
+                 }
++            const double hs1b = hs_now();
++            double hs2 = hs1b, hs3 = hs1b, hs4 = hs1b, hs5x = hs1b;
++            bool hs_merged = false, hs_next_q = false;
++            static const bool pull_early = std::getenv("STRATA_MAC_PULL_EARLY") != nullptr && std::atoi(std::getenv("STRATA_MAC_PULL_EARLY")) != 0;   // measured slower (+9 ms/window: the pull threads compete with the USB thread)
++            if (r0 >= 0 && hs_pre && pull_early) {   // STRATA_MAC_PULL: start reading this layer's cold experts now, while the CE push is queued below
++                int64_t cold[kVerifyMaxT * 16]; int nc = 0;
++                for (int t = r0; t <= r1 && nc + (int) K_ <= (int) (sizeof cold / sizeof cold[0]); ++t)
++                    for (int64_t j = 0; j < K_; ++j) {
++                        const int32_t e = ids[(size_t) t * K_ + j];
++                        if (e < 0 || e >= ne_ || (h_res_ != nullptr && h_res_[l * ne_ + e] >= 0)) continue;
++                        bool dup = false;
++                        for (int q = 0; q < nc; ++q) if (cold[q] == e) { dup = true; break; }
++                        if (!dup) cold[nc++] = e;
++                    }
++                // rows outside r0..r1 have no cold experts by construction of r0/r1 only for the first/last; scan all rows
++                strata_mac_pull_begin(l, cold, nc);
++            }
+             if (r0 >= 0) {
+-                strata::tgcu::pull(h_x_ + (size_t) (tb + r0) * N_, (size_t) (r1 - r0 + 1) * N_ * sizeof(float));
+-                hs[1] += hs_now() - hs1;
++                if (!hs_got) strata::tgcu::pull(h_x_ + (size_t) (tb + r0) * N_, (size_t) (r1 - r0 + 1) * N_ * sizeof(float));
++                hs2 = hs_now();
++                if (hs_pre && !(k == 0 && do_ple && !mxon)) {   // the rows + the flag: one gated copy-engine job, queued now
++                    void* ps[2] = {h_yred_ + (size_t) (tb + r0) * N_, (void*) h_flag_};
++                    const size_t ns[2] = {(size_t) (r1 - r0 + 1) * N_ * sizeof(float), 4};
++                    if (hs_defer && k + 1 < steps) {   // + the next ring's pull, queued now and held until the arm after the push
++                        void* nps[3]; size_t nns[3];
++                        hs_ring_segs(k + 1, nps, nns);
++                        hs_merged = hs_next_q = strata::tgcu::hs_push_pre_next(ps, ns, 2, nps, nns, 3, (const void*) h_seq_, (unsigned) (k + 2)) == 0;
++                    } else
++                    hs_merged = strata::tgcu::hs_push_pre(ps, ns, 2) == 0;
++                }
+                 progress_at("verify window: the CPU experts of layer", l);
+                 if (pool != nullptr)
+                     pool(user, h_x_ + (size_t) tb * N_, ids, n, ss.k, h_ymiss_ + (size_t) tb * K_ * N_, l);
+                 progress_tick();
+-                hs[2] += hs_now() - hs1;
++                hs3 = hs_now();
+                 std::atomic_thread_fence(std::memory_order_seq_cst);
+                 for (int t = r0; t <= r1; ++t) {   // the routing-weighted sum of this row's CPU experts
+                     float* acc = h_yred_ + (size_t) (tb + t) * N_;
+@@ -2196,9 +2255,15 @@
+                     }
+                     if (first) std::memset(acc, 0, (size_t) N_ * sizeof(float));
+                 }
+-                const double hs3 = hs_now();
++                hs4 = hs_now();
++                if (hs_merged) {
++                    *flag = want + fo;
++                    std::atomic_thread_fence(std::memory_order_seq_cst);
++                    strata::tgcu::hs_push_go();
++                    if (hs_next_q) { strata::tgcu::hs_release(); hs_armed = true; }
++                } else
+                 strata::tgcu::push(h_yred_ + (size_t) (tb + r0) * N_, (size_t) (r1 - r0 + 1) * N_ * sizeof(float));
+-                hs[4] += hs_now() - hs3;
++                hs5x = hs_now();
+             }
+             if (k == 0 && do_ple && !mxon) {
+                 const Clock::time_point tp = Clock::now();
+@@ -2209,12 +2274,22 @@
+                 ms_host += ms_since(tp);
+             }
+             const double hs5 = hs_now();
+-            if (!(test_stall && k + 1 == steps)) { *flag = want + fo; strata::tgcu::push(h_flag_, 4); }
++            if (!hs_merged && !(test_stall && k + 1 == steps)) { *flag = want + fo; strata::tgcu::push(h_flag_, 4); }
++            if (hs_pre && k + 1 < steps && !hs_next_q) hs_armed = hs_arm_ring(k + 1);
+             if (hs_trace) {
+-                hs[5] += hs_now() - hs5; hs[0] += hs1 - hs0; hs[6] += hs_now() - hs0; hs[7] += std::chrono::duration<double, std::milli>(b - a).count();
+-                if (++hs_n % 192 == 0)
+-                    std::fprintf(stderr, "strata hs: per doorbell layer (ms): ids+w %.3f, x pull %.3f, pull+pool(cum) %.3f, yred push %.3f, flag push %.3f, host total %.3f, wait-for-ring %.3f (n=%lld)\n",
+-                                 hs[0] / hs_n, hs[1] / hs_n, hs[2] / hs_n, hs[4] / hs_n, hs[5] / hs_n, hs[6] / hs_n, hs[7] / hs_n, (long long) hs_n);
++                const double hs6 = hs_now();
++                hs[0] += hs1 - hs0; hs[1] += hs1b - hs1; hs[6] += hs6 - hs5; hs[7] += hs6 - hs0;
++                hs[8] += std::chrono::duration<double, std::milli>(b - a).count();
++                hs_rows += n; ++hs_n;
++                if (r0 >= 0) { hs[2] += hs2 - hs1b; hs[3] += hs3 - hs2; hs[4] += hs4 - hs3; hs[5] += hs5x - hs4; hs[9] += hs5 - hs5x; ++hs_cold; hs_crows += r1 - r0 + 1; }
++                else hs[10] += hs6 - hs1b;   // a ringing layer without CPU rows: flag push only
++                if (hs_n % 480 == 0)
++                    std::fprintf(stderr, "strata hs: %lld ring-layers (%.0f%% with CPU rows; %.2f rows/layer, %.2f cold rows) ms per ring-layer: wait-for-ring %.3f | ids+w pull %.3f, scan %.3f | per COLD layer: x pull %.3f, pool %.3f, reduce %.3f, y push %.3f, ple %.3f | no-CPU-row layers tail %.3f | flag push %.3f | host b->end %.3f\n",
++                                 (long long) hs_n, 100.0 * (double) hs_cold / (double) hs_n, (double) hs_rows / (double) hs_n,
++                                 hs_cold ? (double) hs_crows / (double) hs_cold : 0.0, hs[8] / hs_n, hs[0] / hs_n, hs[1] / hs_n,
++                                 hs_cold ? hs[2] / hs_cold : 0.0, hs_cold ? hs[3] / hs_cold : 0.0, hs_cold ? hs[4] / hs_cold : 0.0,
++                                 hs_cold ? hs[5] / hs_cold : 0.0, hs_cold ? hs[9] / hs_cold : 0.0,
++                                 hs_n > hs_cold ? hs[10] / (double) (hs_n - hs_cold) : 0.0, hs[6] / hs_n, hs[7] / hs_n);
+             }
+             ms_wait += std::chrono::duration<double, std::milli>(b - a).count();
+             ms_pool += ms_since(b);
+@@ -2265,6 +2340,7 @@
+         ms_wait += std::chrono::duration<double, std::milli>(b - a).count();
+         ms_pool += ms_since(b);
+     }
++    }
+     // (#646 staged the next stage's inputs here; 0.1.39b keeps the layer split's order: each stage stages its own)
+     progress_at("verify window: waiting for the GPU to finish the window (flags A/B/M raised)", (int64_t) T);
+     // #267: a window the GPU never finishes (a spin kernel that never sees its flag) holds the host here; the stall
