@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+
 exec vllm serve /model \
   --dtype float16 \
   --max-model-len 32768 \

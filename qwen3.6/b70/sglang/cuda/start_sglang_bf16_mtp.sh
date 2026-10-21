@@ -25,6 +25,9 @@ SPEC_NUM_STEPS="${SPEC_NUM_STEPS:-3}"
 SPEC_EAGLE_TOPK="${SPEC_EAGLE_TOPK:-1}"
 SPEC_NUM_DRAFT="${SPEC_NUM_DRAFT:-4}"
 
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
+
 exec python3 -m sglang.launch_server \
     --model-path "${MODEL_PATH}" \
     --tp "${TP_SIZE}" \

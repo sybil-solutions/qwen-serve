@@ -26,9 +26,26 @@ download_pinned_model() {
     return
   fi
 
+  if [[ -f $required_file && ( ! -f $revision_file || "${HF_HUB_OFFLINE:-0}" == "1" || "${TRANSFORMERS_OFFLINE:-0}" == "1" ) ]]; then
+    echo "[entrypoint] using existing local model files in $model_dir"
+    return
+  fi
+
+  if [[ "${HF_HUB_OFFLINE:-0}" == "1" || "${TRANSFORMERS_OFFLINE:-0}" == "1" ]]; then
+    echo "[entrypoint] offline mode enabled and required model file is missing: $required_file" >&2
+    exit 1
+  fi
+
   echo "[entrypoint] downloading pinned model $expected_revision"
   mkdir -p "$model_dir"
-  hf download "$repository" --revision "$revision" --local-dir "$model_dir"
+  if ! hf download "$repository" --revision "$revision" --local-dir "$model_dir"; then
+    if [[ -f $required_file ]]; then
+      echo "[entrypoint] warning: hf download failed; falling back to existing local files in $model_dir" >&2
+      return
+    fi
+    echo "[entrypoint] failed to download $expected_revision and $required_file is not present locally" >&2
+    exit 1
+  fi
   [[ -f $required_file ]] || {
     echo "[entrypoint] required model file is missing after download: $required_file" >&2
     exit 1
@@ -50,6 +67,10 @@ download_pinned_model "$AWQ_REPO" "$AWQ_REVISION" "$AWQ" "$AWQ/model.safetensors
 if [ "$DSPARK" = "1" ]; then
   download_pinned_model "$DRAFT_REPO" "$DRAFT_REVISION" "$DRAFT" "$DRAFT/model.safetensors"
 fi
+
+# Prevent SGLang / Transformers / huggingface_hub from making unguarded Hub API calls once local files are verified
+export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"
+export TRANSFORMERS_OFFLINE="${TRANSFORMERS_OFFLINE:-1}"
 
 # --- validated presets per GPU count ---
 # GDN hybrid memory tuning: TP1 needs a small mamba state pool to fit one 24 GB card

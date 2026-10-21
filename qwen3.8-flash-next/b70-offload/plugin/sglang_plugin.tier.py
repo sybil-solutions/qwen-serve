@@ -258,7 +258,12 @@ def _build_classes():
         def from_config(cls, config: dict[str, Any]):
             hf_config = config.get("hf_config")
             hf_path = getattr(hf_config, "_name_or_path", None)
-            path = os.environ.get("EXL3_MODEL_PATH") or hf_path
+            cli_path = None
+            for idx, arg in enumerate(sys.argv[:-1]):
+                if arg in ("--model-path", "--model") and os.path.isdir(sys.argv[idx + 1]):
+                    cli_path = sys.argv[idx + 1]
+                    break
+            path = os.environ.get("EXL3_MODEL_PATH") or cli_path or hf_path
             if path and not os.path.isdir(path):
                 from huggingface_hub import snapshot_download
                 path = snapshot_download(path, local_files_only=True)
