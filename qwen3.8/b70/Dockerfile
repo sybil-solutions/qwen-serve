@@ -26,9 +26,11 @@ RUN cd /build/llama.cpp \
     && git apply /patches/q4k-increment.patch \
     && git diff --check
 
-# SYCL JIT build (AOT bmg_g31 requires oneAPI 2026.1.x whose UR runtime does not
-# yet enumerate devices on publicly available GPU driver stacks; JIT is the
-# verified-working path and reaches decode parity with the lab record.)
+# SYCL JIT build. Note: under oneAPI 2026.1.x, UR device enumeration works once
+# /opt/intel/oneapi/umf/1.0/lib (providing libumf.so.1) is on LD_LIBRARY_PATH
+# or registered via ldconfig, but the bmg_g31 AOT reordered MMVQ path hangs in
+# check_Prefill_Speed on the current dp4a2 + 26.05.37020.4 stack; 2025.3.3 JIT
+# remains the verified-working path and reaches decode parity with the lab record.
 SHELL ["/bin/bash", "-c"]
 RUN cd /build/llama.cpp \
     && . /opt/intel/oneapi/setvars.sh --force \

@@ -99,7 +99,7 @@ before moving on.
 - [ ] Q8_0 (sanity ceiling; will be slower but confirms coherence upper bound)
 
 ### Tier 3 — structural (only if Tier 1+2 plateau)
-- [ ] AOT `bmg_g31` build under oneAPI 2026.1.x (needs working UR driver; likely blocked)
+- [ ] AOT `bmg_g31` build under oneAPI 2026.1.x (UR enumeration works when `/opt/intel/oneapi/umf/1.0/lib` is on `LD_LIBRARY_PATH` for `libumf.so.1`; currently blocked by `ggml_sycl_reordered` GPU hang in `check_Prefill_Speed`)
 - [ ] Q4K reorder-family kernels (need AOT layout; blocked on JIT build)
 - [ ] Custom SYCL kernel patches
 

@@ -165,8 +165,9 @@ proportionally faster decode. Estimated: 44→~50 tok/s (12% gain).
 
 Currently compiled with GRAPH=OFF. Requires `SYCL_EXT_ONEAPI_ASYNC_MEMORY_ALLOC`
 and `SYCL_EXT_ONEAPI_VIRTUAL_MEM` extensions. Our oneAPI 2025.3 does NOT define
-these — **blocked on oneAPI 2026.1.x** which has them but whose UR runtime can't
-enumerate B70 devices on public drivers. Same blocker as AOT.
+these — requires oneAPI 2026.1.x with `/opt/intel/oneapi/umf/1.0/lib` on
+`LD_LIBRARY_PATH` (so `libur_loader.so.0` and `libur_adapter_level_zero.so.0` find
+`libumf.so.1` and enumerate B70 devices).
 
 ### Phase 5: AOT bmg_g31 build (unlocks MMVQ fusions + better BW utilization)
 
@@ -174,9 +175,16 @@ The AOT build produces reordered weight tensors that unlock all 7 disabled MMVQ 
 knobs AND improve memory access coalescing (raising BW utilization from 62%→69%+).
 The lab's 49.7 tok/s was achieved with the AOT build.
 
-**Blocker**: AOT bmg_g31 requires oneAPI 2026.1.x whose UR level-zero adapter doesn't
-enumerate devices on current public driver stacks. PR #22147 fixed the AOT build mechanism,
-but the runtime enumeration problem persists. Needs driver/runtime update.
+**Root cause of 2026.1.x enumeration failure & current AOT blocker**:
+Under `intel/oneapi-basekit:2026.1.*`, the `0 platforms reported` error is caused by a
+missing runtime library path (`libumf.so.1` in `/opt/intel/oneapi/umf/1.0/lib`), not by an
+incompatible UR Level Zero adapter. Adding
+`/opt/intel/oneapi/2026.1/lib:/opt/intel/oneapi/compiler/2026.1/lib:/opt/intel/oneapi/umf/1.0/lib`
+to `LD_LIBRARY_PATH` (or `/etc/ld.so.conf.d/oneapi.conf` + `ldconfig`) resolves `libumf.so.1`
+and enumerates both Arc Pro B70s (`level_zero:gpu:0`, `level_zero:gpu:1`). However, when built
+with `-DGGML_SYCL_TARGET=INTEL -DGGML_SYCL_DEVICE_ARCH=bmg_g31` on the `dp4a2` snapshot,
+`ggml_sycl_reordered` (`Reorder + MulMatVecQ`) triggers a GPU hang during `check_Prefill_Speed`
+that resets both cards.
 
 ### Phase 6: INT4 / AutoRound quantization (bandwidth halving)
 

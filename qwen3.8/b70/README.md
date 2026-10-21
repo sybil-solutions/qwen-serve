@@ -70,10 +70,14 @@ Decode is nearly flat with context: only 16 of 64 layers are full attention
 - **Model**: `ggml-org/Qwen3.8-27B-GGUF` @ `0669b986`, `Qwen3.8-27B-Q4_K_M.gguf`,
   SHA-256 checked at every container start.
 - **Build**: SYCL JIT via Intel oneAPI DPC++ 2025.3.3. AOT `bmg_g31` builds
-  work under oneAPI 2026.1.1, but that runtime's UR level-zero adapter does not
-  enumerate devices on any publicly available GPU userspace today; JIT is the
-  verified-working path and reaches decode parity with the lab's promoted
-  record (51 tok/s vs 49.7).
+  under oneAPI 2026.1.x require `/opt/intel/oneapi/umf/1.0/lib` on
+  `LD_LIBRARY_PATH` (or `/etc/ld.so.conf.d/oneapi.conf` + `ldconfig`) so
+  `libur_loader.so.0` and `libur_adapter_level_zero.so.0` can resolve
+  `libumf.so.1` and enumerate B70 devices (`level_zero:gpu:0`, `level_zero:gpu:1`).
+  However, on the `dp4a2` snapshot with `26.05.37020.4` compute runtime, enabling
+  the `ggml_sycl_reordered` (`Reorder + MulMatVecQ`) AOT path hangs during
+  `check_Prefill_Speed`, so 2025.3.3 JIT remains the default verified-working
+  path and reaches decode parity with the lab's promoted record (51 tok/s vs 49.7).
 
 ## Options (docker-compose `environment`)
 
