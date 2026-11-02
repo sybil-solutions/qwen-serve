@@ -1,0 +1,305 @@
+== R3d_prof2 2026-10-11T15:13:31Z cfg=$HOME/shim/strata-exl3p256.json
+STRATA_DECODE_TIMING=1
+STRATA_EXL3_KEEP_MASK=$HOME/exl3/keep_mask_240.bin
+STRATA_EXL3_SLIM=1
+STRATA_HS_TRACE=1
+STRATA_VERIFY_LAYER_AR=0
+TGCU_PROF=1
+[strata] 2026-10-11 08:13:33 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_p256 --native $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf --expert-profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --no-prefill-borrow
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata serve: 1277 MiB of VRAM free with everything loaded
+READY
+ready after 193 s
+{"i": 0, "wall_s": 23.6, "prompt_n": 29, "prompt_ms": 8511.6, "predicted_n": 40, "predicted_ms": 15113.7, "tok_s": 2.6, "drafts": "27/33", "head": "Here is a Python function that checks if a number is prime, followed by a brief explanatio"}
+{"i": 1, "wall_s": 25.9, "prompt_n": 35, "prompt_ms": 7021.8, "predicted_n": 40, "predicted_ms": 18842.6, "tok_s": 2.1, "drafts": "19/35", "head": "A mixture-of-experts (MoE) model begins by generating a dense vector representation for ea"}
+{"i": 2, "wall_s": 29.0, "prompt_n": 29, "prompt_ms": 5982.8, "predicted_n": 40, "predicted_ms": 23000.6, "tok_s": 1.7, "drafts": "16/26", "head": "The rain lashed against the shore, slick and cold, but the sea remained stubbornly dry. El"}
+-- engine log
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.157 ring 0.170 gpput 0.169 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.157 ring 0.170 gpput 0.170 doorbell 0.171
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.156 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.160 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.165 ring 0.168 gpput 0.168 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.154 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.151 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.153 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.151 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.152 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.157 ring 0.170 gpput 0.170 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.162 ring 0.169 gpput 0.169 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.160 ring 0.170 gpput 0.170 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.163 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.168 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.158 ring 0.170 gpput 0.170 doorbell 0.171
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.164 ring 0.168 gpput 0.168 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.165 ring 0.171 gpput 0.170 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.160 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.167 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.155 ring 0.170 gpput 0.169 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.167 ring 0.170 gpput 0.170 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.159 ring 0.167 gpput 0.167 doorbell 0.168
+strata generate: profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin: 12288 ranked pairs, built for 12288 slots
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.155 ring 0.170 gpput 0.169 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.156 ring 0.170 gpput 0.170 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.154 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.154 ring 0.169 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.155 ring 0.169 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.155 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.157 ring 0.169 gpput 0.168 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.156 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.157 ring 0.169 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.160 ring 0.169 gpput 0.169 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.165 ring 0.168 gpput 0.169 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.172 ring 0.169 gpput 0.169 doorbell 0.169
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata generate: expert cache 9296 slots, 16.12 GiB of VRAM; policy is
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.162 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.166
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.166
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.166
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.169 gpput 0.168 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.166 doorbell 0.166
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.151 ring 0.169 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.167 doorbell 0.166
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.154 ring 0.168 gpput 0.168 doorbell 0.170
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.147 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.152 ring 0.167 gpput 0.168 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.151 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.167 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.166 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.148 ring 0.167 gpput 0.166 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.150 ring 0.168 gpput 0.168 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.155 ring 0.170 gpput 0.170 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.149 ring 0.167 gpput 0.167 doorbell 0.167
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.152 ring 0.168 gpput 0.167 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.158 ring 0.169 gpput 0.169 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.161 ring 0.168 gpput 0.168 doorbell 0.169
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.168 ring 0.168 gpput 0.168 doorbell 0.168
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.171 ring 0.170 gpput 0.169 doorbell 0.170
+strata generate: pre-filled 9296 of 9296 slots from the profile in 134.8 s (128 MB/s); slot 0 verified
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.162 ring 0.167 gpput 0.167 doorbell 0.168
+strata serve: 1277 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (1277 MiB of VRAM free)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 0.159 ring 0.169 gpput 0.169 doorbell 0.169
+strata exl3: keep mask $HOME/exl3/keep_mask_240.bin loaded (quality probe)
+strata verify: capturing the 4-token window (1223 MiB of VRAM free)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.404 ring 1.377 gpput 1.230 doorbell 0.937
+strata hs: per doorbell layer (ms): ids+w 0.402, x pull 1.604, pull+pool(cum) 14.615, yred push 16.879, flag push 0.509, host total 32.463, wait-for-ring 1.039 (n=192)
+strata verify: capturing the 1-token window (1107 MiB of VRAM free)
+strata verify: capturing the 2-token window (1105 MiB of VRAM free)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.775 ring 1.479 gpput 1.328 doorbell 0.869
+strata hs: per doorbell layer (ms): ids+w 0.435, x pull 1.493, pull+pool(cum) 9.066, yred push 14.722, flag push 0.419, host total 24.688, wait-for-ring 0.816 (n=384)
+strata hs: per doorbell layer (ms): ids+w 0.409, x pull 1.453, pull+pool(cum) 7.168, yred push 15.820, flag push 0.390, host total 23.829, wait-for-ring 0.855 (n=576)
+strata verify: capturing the 3-token window (1103 MiB of VRAM free)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.921 ring 1.794 gpput 1.837 doorbell 1.452
+strata hs: per doorbell layer (ms): ids+w 0.451, x pull 1.467, pull+pool(cum) 6.839, yred push 15.937, flag push 0.413, host total 23.680, wait-for-ring 0.903 (n=768)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.811 ring 1.777 gpput 1.284 doorbell 1.386
+strata decode timing: 14 windows, avg T 3.36, 2.86 tokens/window, 1079.55 ms/window = verify 1068.89 (GPU-reach wait 38.47 + per-layer host 1017.25 [plan 0.06 actq 0.00 jobs 0.01 CPU 111.46] + stage 1.54) + commit/emit 0.91 + draft 9.75; per layer-window: CPU experts 3.12 (5.18 entries), VRAM hits 24.87, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 8512 ms (3.4 tok/s), 40 generated in 15114 ms (2.6 tok/s), drafts accepted 27 of 33, 1 checkpoints
+strata serve: decode expert cache hit rate: 82.8% (16711 hits / 20190 lookups)
+strata hs: per doorbell layer (ms): ids+w 0.427, x pull 1.461, pull+pool(cum) 6.222, yred push 16.343, flag push 0.393, host total 23.425, wait-for-ring 0.874 (n=960)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.859 ring 1.886 gpput 1.873 doorbell 1.443
+strata hs: per doorbell layer (ms): ids+w 0.431, x pull 1.488, pull+pool(cum) 6.325, yred push 16.525, flag push 0.421, host total 23.745, wait-for-ring 0.918 (n=1152)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.377 ring 1.605 gpput 1.284 doorbell 1.003
+strata hs: per doorbell layer (ms): ids+w 0.421, x pull 1.461, pull+pool(cum) 5.853, yred push 15.841, flag push 0.420, host total 22.578, wait-for-ring 0.875 (n=1344)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.092 ring 1.895 gpput 1.682 doorbell 1.175
+strata hs: per doorbell layer (ms): ids+w 0.412, x pull 1.422, pull+pool(cum) 5.367, yred push 15.748, flag push 0.405, host total 21.974, wait-for-ring 0.849 (n=1536)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.674 ring 2.231 gpput 1.821 doorbell 1.034
+strata hs: per doorbell layer (ms): ids+w 0.405, x pull 1.387, pull+pool(cum) 4.961, yred push 15.625, flag push 0.393, host total 21.424, wait-for-ring 0.839 (n=1728)
+strata hs: per doorbell layer (ms): ids+w 0.399, x pull 1.369, pull+pool(cum) 4.655, yred push 15.591, flag push 0.386, host total 21.070, wait-for-ring 0.814 (n=1920)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.848 ring 2.041 gpput 1.714 doorbell 1.348
+strata hs: per doorbell layer (ms): ids+w 0.395, x pull 1.360, pull+pool(cum) 4.426, yred push 15.703, flag push 0.391, host total 20.958, wait-for-ring 0.807 (n=2112)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.275 ring 2.253 gpput 1.698 doorbell 1.281
+strata decode timing: 21 windows, avg T 2.67, 1.90 tokens/window, 897.27 ms/window = verify 888.51 (GPU-reach wait 31.53 + per-layer host 853.52 [plan 0.04 actq 0.00 jobs 0.01 CPU 39.32] + stage 2.05) + commit/emit 0.81 + draft 7.95; per layer-window: CPU experts 2.08 (3.27 entries), VRAM hits 18.79, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 7022 ms (5.0 tok/s), 40 generated in 18843 ms (2.1 tok/s), drafts accepted 19 of 35, 1 checkpoints
+strata serve: decode expert cache hit rate: 85.2% (18944 hits / 22240 lookups)
+strata hs: per doorbell layer (ms): ids+w 0.391, x pull 1.370, pull+pool(cum) 4.443, yred push 15.726, flag push 0.399, host total 21.002, wait-for-ring 0.812 (n=2304)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.787 ring 1.885 gpput 1.601 doorbell 1.555
+strata hs: per doorbell layer (ms): ids+w 0.393, x pull 1.376, pull+pool(cum) 4.411, yred push 15.635, flag push 0.408, host total 20.889, wait-for-ring 0.801 (n=2496)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 1.789 ring 1.759 gpput 1.600 doorbell 1.079
+strata hs: per doorbell layer (ms): ids+w 0.393, x pull 1.363, pull+pool(cum) 4.292, yred push 15.625, flag push 0.405, host total 20.756, wait-for-ring 0.789 (n=2688)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.678 ring 2.062 gpput 1.803 doorbell 1.194
+strata hs: per doorbell layer (ms): ids+w 0.392, x pull 1.358, pull+pool(cum) 4.166, yred push 15.726, flag push 0.403, host total 20.728, wait-for-ring 0.772 (n=2880)
+strata hs: per doorbell layer (ms): ids+w 0.389, x pull 1.348, pull+pool(cum) 4.042, yred push 15.745, flag push 0.398, host total 20.615, wait-for-ring 0.753 (n=3072)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.754 ring 1.930 gpput 1.886 doorbell 1.244
+strata hs: per doorbell layer (ms): ids+w 0.388, x pull 1.344, pull+pool(cum) 3.927, yred push 15.805, flag push 0.408, host total 20.568, wait-for-ring 0.746 (n=3264)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.631 ring 2.009 gpput 1.810 doorbell 1.245
+strata hs: per doorbell layer (ms): ids+w 0.385, x pull 1.344, pull+pool(cum) 3.836, yred push 15.832, flag push 0.406, host total 20.499, wait-for-ring 0.746 (n=3456)
+[tgcu prof] submit parts (ms, avg of 400): pushbuf 2.334 ring 1.503 gpput 1.378 doorbell 1.381
+strata decode timing: 24 windows, avg T 2.08, 1.67 tokens/window, 958.36 ms/window = verify 950.65 (GPU-reach wait 27.82 + per-layer host 919.40 [plan 0.03 actq 0.00 jobs 0.01 CPU 48.45] + stage 1.60) + commit/emit 0.67 + draft 7.04; per layer-window: CPU experts 3.23 (4.75 entries), VRAM hits 13.14, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 5983 ms (4.8 tok/s), 40 generated in 23001 ms (1.7 tok/s), drafts accepted 16 of 26, 1 checkpoints
+strata serve: decode expert cache hit rate: 73.4% (15138 hits / 20610 lookups)
+== done 2026-10-11T15:18:03Z

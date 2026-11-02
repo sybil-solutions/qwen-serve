@@ -1,0 +1,166 @@
+{
+ "gate_rel_rms": 0.001,
+ "tests": [
+  {
+   "name": "neon_vs_numpy_f64",
+   "ok": true,
+   "rel_rms": 8.278907279864635e-05,
+   "max_abs": 3.0171311759065456e-05,
+   "secs": 0.2
+  },
+  {
+   "name": "decode m=1 E=10 pairs=10 nocopy",
+   "ok": true,
+   "rel_rms": 7.234860243932615e-05,
+   "max_abs": 2.5644898414611816e-05,
+   "ref_max": 0.33177924156188965
+  },
+  {
+   "name": "decode m=1 E=10 pairs=10 staged",
+   "ok": true,
+   "rel_rms": 7.234860243932615e-05,
+   "max_abs": 2.5644898414611816e-05,
+   "ref_max": 0.33177924156188965
+  },
+  {
+   "name": "decode m=2 E=13 pairs=26 nocopy",
+   "ok": true,
+   "rel_rms": 5.064121620401475e-05,
+   "max_abs": 2.1199695765972137e-05,
+   "ref_max": 0.44900545477867126
+  },
+  {
+   "name": "decode m=2 E=13 pairs=26 staged",
+   "ok": true,
+   "rel_rms": 5.064121620401475e-05,
+   "max_abs": 2.1199695765972137e-05,
+   "ref_max": 0.44900545477867126
+  },
+  {
+   "name": "decode m=4 E=13 pairs=39 nocopy",
+   "ok": true,
+   "rel_rms": 4.790325590713997e-05,
+   "max_abs": 2.1051615476608276e-05,
+   "ref_max": 0.35252317786216736
+  },
+  {
+   "name": "decode m=4 E=13 pairs=39 staged",
+   "ok": true,
+   "rel_rms": 4.790325590713997e-05,
+   "max_abs": 2.1051615476608276e-05,
+   "ref_max": 0.35252317786216736
+  },
+  {
+   "name": "decode m=4 E=20 pairs=40 nocopy",
+   "ok": true,
+   "rel_rms": 5.552635022398477e-05,
+   "max_abs": 2.6185065507888794e-05,
+   "ref_max": 0.355489581823349
+  },
+  {
+   "name": "decode m=4 E=20 pairs=40 staged",
+   "ok": true,
+   "rel_rms": 5.552635022398477e-05,
+   "max_abs": 2.6185065507888794e-05,
+   "ref_max": 0.355489581823349
+  },
+  {
+   "name": "decode m=8 E=10 pairs=80 nocopy",
+   "ok": true,
+   "rel_rms": 5.0873701795676144e-05,
+   "max_abs": 2.1860003471374512e-05,
+   "ref_max": 0.41335344314575195
+  },
+  {
+   "name": "decode m=8 E=10 pairs=80 staged",
+   "ok": true,
+   "rel_rms": 5.0873701795676144e-05,
+   "max_abs": 2.1860003471374512e-05,
+   "ref_max": 0.41335344314575195
+  },
+  {
+   "name": "decode m=3 E=7 pairs=21 nocopy",
+   "ok": true,
+   "rel_rms": 4.499567184869469e-05,
+   "max_abs": 1.7330050468444824e-05,
+   "ref_max": 0.3358842134475708
+  },
+  {
+   "name": "decode m=3 E=7 pairs=21 staged",
+   "ok": true,
+   "rel_rms": 4.499567184869469e-05,
+   "max_abs": 1.7330050468444824e-05,
+   "ref_max": 0.3358842134475708
+  },
+  {
+   "name": "negative wrong-expert detected",
+   "ok": true,
+   "rel_rms": 0.32085684223341326,
+   "max_abs": 0.11766946315765381,
+   "baseline_rel": 4.75515688006024e-05
+  },
+  {
+   "name": "negative corrupted-trellis detected",
+   "ok": true,
+   "rel_rms": 0.002325082129738237,
+   "max_abs": 0.002418234944343567,
+   "restored_rel": 4.75515688006024e-05
+  },
+  {
+   "name": "negative weight-mismatch detected",
+   "ok": true,
+   "rel_rms": 0.007339665040108123,
+   "max_abs": 0.003092162311077118
+  },
+  {
+   "name": "determinism decode x30 bitwise",
+   "ok": true
+  },
+  {
+   "name": "prefill n_tok=160 topk=4 experts=24 nocopy",
+   "ok": true,
+   "rel_rms": 7.29657478792064e-05,
+   "max_abs": 3.99760901927948e-05,
+   "ref_max": 0.30473196506500244
+  },
+  {
+   "name": "prefill n_tok=160 topk=4 experts=24 staged",
+   "ok": true,
+   "rel_rms": 7.29657478792064e-05,
+   "max_abs": 3.99760901927948e-05,
+   "ref_max": 0.30473196506500244
+  },
+  {
+   "name": "prefill path vs decode path (m=4, 9 experts; two fp32 accumulation orders)",
+   "ok": true,
+   "rel_rms": 7.185517318676928e-05,
+   "max_abs": 1.5527009963989258e-05
+  },
+  {
+   "name": "determinism prefill x6 bitwise",
+   "ok": true
+  },
+  {
+   "name": "prefill chunk size independence (3 vs 16 experts)",
+   "ok": true,
+   "rel_rms": 2.7712759218702022e-08,
+   "max_abs": 1.4901161193847656e-08
+  },
+  {
+   "name": "multi-piece NoCopy registration == single piece (bitwise), all 48 blobs in place",
+   "ok": true,
+   "staged_delta": 0,
+   "mapped_delta": 48
+  },
+  {
+   "name": "thread safety 6 threads x 12 calls (2 slots) bitwise == serial",
+   "ok": true,
+   "mismatches": 0
+  },
+  {
+   "name": "async submit/wait, two jobs in flight, out-of-order wait",
+   "ok": true
+  }
+ ],
+ "all_pass": true
+}

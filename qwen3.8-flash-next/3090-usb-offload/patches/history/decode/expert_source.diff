@@ -1,0 +1,282 @@
+--- orig-1012-decode/expert_source.cpp	2026-10-11 18:19:33
++++ $HOME/strata-lockstep/src/core/expert_source.cpp	2026-10-11 18:59:31
+@@ -1400,6 +1400,15 @@
+         cv.notify_all();
+         finish();
+     }
++    void begin_to(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j, const std::vector<uint8_t*>& dst) {   // run_to without the join (finish() joins)
++        finish();
++        if (j.empty()) return;
++        {
++            std::lock_guard<std::mutex> lk(mu);
++            own = j; own_dst = dst; has_dst = true; jobs = &own; fd = fd_; n = own.size(); next.store(0); completed.store(0); ++gen; active = true;
++        }
++        cv.notify_all();
++    }
+ };
+ MacPull& mac_pull() {
+     static MacPull* p = [] { auto* q = new MacPull; int nt = 7; if (const char* e = std::getenv("STRATA_MAC_PULL_THREADS")) nt = std::max(1, std::atoi(e)); q->start(nt); return q; }();
+@@ -1503,8 +1512,34 @@
+     int64_t lru_hits = 0, lru_miss = 0;
+     const uint8_t* ptrs[128] = {};
+     double ms_gather = 0, ms_metal = 0; int64_t calls = 0, experts = 0, fallbacks = 0;
++    // STRATA_EXL3_METAL_SPLIT=1: the lane submits the experts that are already in place (tier + LRU hits) as one async Metal job, reads the misses meanwhile, then
++    // submits the misses as a second job (y = y_inplace + y_miss: fp32 reassociation vs the single job).  phase 0: one pass (gather = classify + read);
++    // 1: classify only, the reads are stashed in sj/sd; 2: run the stashed reads.
++    int (*rows_submit)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*, void**) = nullptr;
++    int (*waitj)(void*, void*) = nullptr;
++    int phase = 0, spfd = -1;
++    uint8_t status[128] = {};   // per distinct expert of the last gather: 0 locked tier, 1 LRU hit, 2 miss read from the page cache, 3 miss read from the SSD, 255 none
++    std::vector<std::pair<uint64_t, uint64_t>> sj;
++    std::vector<uint8_t*> sd;
++    int64_t split_calls = 0;
++    ExpertSource* src = nullptr;          // set by the lane's first call (the early start needs it)
++    bool early_ok = false;                // strata_mac_pull_begin classified + started the reads of layer early_layer for the experts early_e[0..early_n)
++    int64_t early_layer = -1, early_e[128] = {};
++    int early_n = 0;
++    void* ja = nullptr;                   // the in-place experts' job submitted by strata_exl3_metal_begin (outputs: M.ya, or the layer's rows when every expert was in place)
++    bool early_a = false, early_all = false;
++    const float *early_x = nullptr, *early_w = nullptr;
++    float* early_y = nullptr;
++    const int32_t* early_ids = nullptr;
++    int early_ntok = 0;
++    float ya[8 * 2560] = {};
++    int64_t apre_calls = 0;
+ };
+ MetalLane& ml() { static MetalLane m; return m; }
++bool ml_early_enabled() {
++    static const bool on = std::getenv("STRATA_EXL3_METAL_EARLY") != nullptr && std::atoi(std::getenv("STRATA_EXL3_METAL_EARLY")) != 0;
++    return on;
++}
+ bool ml_enabled() {
+     static const bool on = std::getenv("STRATA_EXL3_METAL") != nullptr && std::atoi(std::getenv("STRATA_EXL3_METAL")) != 0;
+     return on;
+@@ -1519,6 +1554,8 @@
+     auto create = (void* (*)(int, int)) dlsym(M.lib, "exl3m_create");
+     M.reg = (int64_t (*)(void*, const void*, size_t)) dlsym(M.lib, "exl3m_register");
+     M.rows = (int (*)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*)) dlsym(M.lib, "exl3m_moe_rows");
++    M.rows_submit = (int (*)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*, void**)) dlsym(M.lib, "exl3m_moe_rows_submit");
++    M.waitj = (int (*)(void*, void*)) dlsym(M.lib, "exl3m_wait");
+     M.lasterr = (const char* (*)()) dlsym(M.lib, "exl3m_last_error");
+     if (!create || !M.reg || !M.rows || !M.lasterr) { std::fprintf(stderr, "strata exl3-metal: missing symbols in %s\n", path.c_str()); return false; }
+     // STRATA_EXL3_METAL_JOBS (default 2): the context's job slots = Metal jobs in flight (the lockstep prompt lane keeps lag + 1 of them; prefill.cpp pf_jobs reads the same variable)
+@@ -1766,6 +1803,7 @@
+     return t ? 1 : 0;
+ }
+ // 1+: distinct experts computed (rows written to M.y); 0: not handled (the NEON pool takes the layer); -1: d.failed set
++constexpr int EXL3M_ROW = 2560;   // hidden size: one x / y row
+ static int exl3_metal_lane(ExpertDispatch& d, const float* x_f, const int32_t* ids, int64_t n_tok, int64_t k, const int32_t* kind,
+                            double& ms_gather, double& ms_metal) {
+     MetalLane& M = ml();
+@@ -1789,13 +1827,74 @@
+     }
+     if (np == 0 || nd > M.nslots) return 0;
+     const auto t0 = std::chrono::steady_clock::now();
+-    M.gather = true;
+-    d.src->prefetch(d.layers, distinct, nd);   // FileExpertSource::prefetch in gather mode fills M.ptrs
+-    M.gather = false;
++    M.src = d.src;
++    static const bool split_on = M.rows_submit != nullptr && M.waitj != nullptr && [] { const char* v = std::getenv("STRATA_EXL3_METAL_SPLIT"); return v != nullptr && std::atoi(v) != 0; }();
++    auto gather_phase = [&](int ph) {
++        M.phase = ph; M.gather = true;
++        d.src->prefetch(d.layers, distinct, nd);   // FileExpertSource::prefetch in gather mode fills M.ptrs (phase 1: classify, stash the reads; 2: run them)
++        M.gather = false; M.phase = 0;
++    };
++    auto t1 = t0, t2 = t0;
++    int rc = 0;
++    bool ready[128];
++    int nready = 0;
++    bool split = false;
++    bool early = false, a_pre = false;
++    if (M.early_ok) {   // strata_mac_pull_begin / strata_exl3_metal_begin already mapped the slots and started the misses' reads (and the in-place job) for this layer's cold experts
++        early = M.early_layer == d.layers && M.early_n == nd;
++        for (int q = 0; early && q < nd; ++q) if (M.early_e[q] != distinct[q]) early = false;
++        a_pre = early && M.early_a && M.early_x == x_f && M.early_w == M.w && M.early_y == M.y && M.early_ids == ids && M.early_ntok == (int) n_tok;
++        M.early_ok = false;
++        if (a_pre) ++M.apre_calls;
++        if (!a_pre && M.early_a) { (void) M.waitj(M.ctx, M.ja); M.early_a = false; }   // not the job this call needs: let it finish, run the plain path
++        if (!early) mac_pull().finish();   // another set was started: its reads must land before anything reads those slots
++    }
++    if (early || (split_on && nd >= 2)) {
++        if (!early) gather_phase(1);
++        bool ok = true;
++        for (int q = 0; q < nd; ++q) { if (M.ptrs[q] == nullptr) ok = false; ready[q] = M.status[q] <= 1; nready += ready[q] ? 1 : 0; }
++        split = split_on && nd >= 2 && ok && nready > 0 && nready < nd;
++        if (!split) { if (early) mac_pull().finish(); else gather_phase(2); }   // nothing to overlap (or a failure): the reads, then the plain single job
++    } else gather_phase(0);
+     for (int q = 0; q < nd; ++q) if (M.ptrs[q] == nullptr) { ++M.fallbacks; return 0; }
+-    const auto t1 = std::chrono::steady_clock::now();
+-    const int rc = M.rows(M.ctx, x_f, (int) n_tok, np, eidx, ridx, wt, (const void* const*) M.ptrs, M.y);
+-    const auto t2 = std::chrono::steady_clock::now();
++    if (split) {
++        int amap[128], bmap[128];
++        const void* pa[128]; const void* pb[128];
++        int na = 0, nb = 0;
++        for (int q = 0; q < nd; ++q) {
++            if (ready[q]) { amap[q] = na; pa[na++] = M.ptrs[q]; bmap[q] = -1; }
++            else { bmap[q] = nb; pb[nb++] = M.ptrs[q]; amap[q] = -1; }
++        }
++        int32_t ea[128], ra[128], eb[128], rb[128];
++        float wa[128], wb[128];
++        int npa = 0, npb = 0;
++        for (int p = 0; p < np; ++p) {
++            const int q = eidx[p];
++            if (ready[q]) { ea[npa] = amap[q]; ra[npa] = ridx[p]; wa[npa++] = wt[p]; }
++            else { eb[npb] = bmap[q]; rb[npb] = ridx[p]; wb[npb++] = wt[p]; }
++        }
++        void* ja = nullptr; void* jb = nullptr;
++        if (a_pre) { ja = M.ja; M.early_a = false; }
++        else rc = M.rows_submit(M.ctx, x_f, (int) n_tok, npa, ea, ra, wa, pa, M.ya, &ja);   // the in-place experts run on the GPU while the misses are read
++        if (early) mac_pull().finish(); else gather_phase(2);
++        t1 = std::chrono::steady_clock::now();
++        if (rc == 0) rc = M.rows_submit(M.ctx, x_f, (int) n_tok, npb, eb, rb, wb, pb, M.y, &jb);
++        if (ja != nullptr) { const int r2 = M.waitj(M.ctx, ja); if (rc == 0) rc = r2; }
++        if (jb != nullptr) { const int r2 = M.waitj(M.ctx, jb); if (rc == 0) rc = r2; }
++        if (rc == 0) for (int64_t i = 0; i < n_tok * EXL3M_ROW; ++i) M.y[i] += M.ya[i];
++        t2 = std::chrono::steady_clock::now();
++        ++M.split_calls;
++    } else if (a_pre && M.early_all) {   // every expert was in place: strata_exl3_metal_begin submitted the one job (into M.y)
++        mac_pull().finish();
++        t1 = std::chrono::steady_clock::now();
++        rc = M.waitj(M.ctx, M.ja);
++        M.early_a = false;
++        t2 = std::chrono::steady_clock::now();
++    } else {
++        t1 = std::chrono::steady_clock::now();
++        rc = M.rows(M.ctx, x_f, (int) n_tok, np, eidx, ridx, wt, (const void* const*) M.ptrs, M.y);
++        t2 = std::chrono::steady_clock::now();
++    }
+     if (rc != 0) {
+         static int warned = 0;
+         if (warned++ < 5) std::fprintf(stderr, "strata exl3-metal: exl3m_moe_rows failed (%d): %s; NEON pool takes the layer\n", rc, M.lasterr());
+@@ -1809,8 +1908,8 @@
+     M.ms_gather += ms_gather; M.ms_metal += ms_metal; M.experts += nd;
+     static const bool pstats = std::getenv("STRATA_POOL_STATS") != nullptr;
+     if (++M.calls % 1000 == 0 && pstats)
+-        std::fprintf(stderr, "strata exl3-metal: %lld calls, %.2f experts/call, gather %.3f ms, metal %.3f ms per call, %lld fallbacks, slot LRU %lld hits / %lld misses (%d slots)\n",
+-                     (long long) M.calls, (double) M.experts / (double) M.calls, M.ms_gather / (double) M.calls, M.ms_metal / (double) M.calls, (long long) M.fallbacks, (long long) M.lru_hits, (long long) M.lru_miss, M.nslots);
++        std::fprintf(stderr, "strata exl3-metal: %lld calls, %.2f experts/call, gather %.3f ms, metal %.3f ms per call, %lld fallbacks, slot LRU %lld hits / %lld misses (%d slots), split jobs %lld, early-A jobs %lld\n",
++                     (long long) M.calls, (double) M.experts / (double) M.calls, M.ms_gather / (double) M.calls, M.ms_metal / (double) M.calls, (long long) M.fallbacks, (long long) M.lru_hits, (long long) M.lru_miss, M.nslots, (long long) M.split_calls, (long long) M.apre_calls);
+     return nd;
+ }
+ #else
+@@ -1831,11 +1930,67 @@
+ // start on the pull threads and overlap that USB work; FileExpertSource::prefetch joins them (and reads whatever is still missing)
+ static std::function<void(int64_t, const int64_t*, int64_t)> g_pull_begin;
+ static std::atomic<bool> g_pull_begin_set{false};
++// Maps the LRU slots of `experts` (layer's cold experts, in the order the lane will see them) and starts the misses' reads without joining them.  false: nothing was started.
++static bool ml_early_start(int64_t layer, const int64_t* experts, int64_t n) {
++    MetalLane& M = ml();
++    M.early_ok = false;
++    if (!(M.ok && M.src != nullptr && n > 0 && n <= 96 && n <= M.nslots)) return false;
++    M.gather = true; M.phase = 1;
++    M.src->prefetch(layer, experts, n);
++    M.gather = false; M.phase = 0;
++    for (int64_t q = 0; q < n; ++q)
++        if (M.ptrs[q] == nullptr) {   // the slots that were mapped must still be filled
++            if (!M.sj.empty()) mac_pull().run_to(M.spfd, M.sj, M.sd);
++            M.sj.clear(); M.sd.clear();
++            return false;
++        }
++    mac_pull().begin_to(M.spfd, M.sj, M.sd);
++    M.sj.clear(); M.sd.clear();
++    M.early_ok = true; M.early_layer = layer; M.early_n = (int) n;
++    for (int64_t q = 0; q < n; ++q) M.early_e[q] = experts[q];
++    return true;
++}
+ extern "C" void strata_mac_pull_begin(int64_t layer, const int64_t* experts, int64_t n) {
++    if (ml_early_enabled() && ml_early_start(layer, experts, n)) return;   // STRATA_EXL3_METAL_EARLY=1 (+ STRATA_MAC_PULL_EARLY=1 for the call from verify.cpp)
+     if (g_pull_begin_set.load(std::memory_order_acquire)) g_pull_begin(layer, experts, n);
+ }
++// verify.cpp, once a ring's x / ids / w are on the host (before the CE push is queued): like strata_mac_pull_begin, plus the experts that are already in place (tier + LRU hits)
++// go to the Metal GPU right now (STRATA_EXL3_METAL_SPLIT), so they run while the push is queued and the misses are read.  1: taken (the lane finishes the job)
++extern "C" int strata_exl3_metal_begin(int64_t layer, const int64_t* cold, int64_t nc, const float* x, const int32_t* ids, const float* w, float* y, int n_tok, int64_t k) {
++    if (!ml_early_enabled()) return 0;
++    MetalLane& M = ml();
++    if (M.early_a) { (void) M.waitj(M.ctx, M.ja); M.early_a = false; }
++    static const bool split_env = [] { const char* v = std::getenv("STRATA_EXL3_METAL_SPLIT"); return v != nullptr && std::atoi(v) != 0; }();
++    const bool split_on = split_env && M.rows_submit != nullptr && M.waitj != nullptr;
++    if (!ml_early_start(layer, cold, nc)) return 0;
++    if (!split_on || n_tok > 8 || n_tok < 1) return 1;
++    bool ready[128];
++    int nready = 0, amap[128];
++    const void* pa[128];
++    for (int q = 0; q < nc; ++q) { ready[q] = M.status[q] <= 1; if (ready[q]) { amap[q] = nready; pa[nready++] = M.ptrs[q]; } }
++    if (nready == 0) return 1;
++    int32_t ea[128], ra[128];
++    float wa[128];
++    int npa = 0;
++    for (int t = 0; t < n_tok; ++t)
++        for (int64_t j = 0; j < k; ++j) {
++            const int64_t i = (int64_t) t * k + j, e = ids[i];
++            int q = 0;
++            while (q < nc && cold[q] != e) ++q;
++            if (q == nc || !ready[q]) continue;
++            if (npa >= 128) return 1;
++            ea[npa] = amap[q]; ra[npa] = t; wa[npa++] = w[i];
++        }
++    float* out = nready == nc ? y : M.ya;   // all in place: the one job writes the layer's rows directly
++    void* job = nullptr;
++    if (M.rows_submit(M.ctx, x, n_tok, npa, ea, ra, wa, pa, out, &job) != 0 || job == nullptr) return 1;   // the lane does it the plain way
++    M.ja = job; M.early_a = true; M.early_all = nready == nc;
++    M.early_x = x; M.early_w = w; M.early_y = y; M.early_ids = ids; M.early_ntok = n_tok;
++    return 1;
++}
+ #else
+ extern "C" void strata_mac_pull_begin(int64_t, const int64_t*, int64_t) {}
++extern "C" int strata_exl3_metal_begin(int64_t, const int64_t*, int64_t, const float*, const int32_t*, const float*, float*, int, int64_t) { return 0; }
+ #endif
+ 
+ void FileExpertSource::prefetch(int64_t layer, const int64_t* experts, int64_t n) {
+@@ -1936,6 +2091,11 @@
+     }
+     if (ml().gather) {   // STRATA_EXL3_METAL: hand out in-place blob pointers for the Metal lane (resident tier) or whole-blob preads into its registered slots
+         MetalLane& M = ml();
++        if (M.phase == 2) {   // run the reads stashed by phase 1 (the pages land in the registered slots the lane already mapped)
++            if (!M.sj.empty()) mac_pull().run_to(M.spfd, M.sj, M.sd);
++            M.sj.clear(); M.sd.clear();
++            return;
++        }
+         static thread_local std::vector<std::pair<uint64_t, uint64_t>> gjobs;
+         static thread_local std::vector<uint8_t*> gdst;
+         gjobs.clear(); gdst.clear();
+@@ -1945,6 +2105,7 @@
+         int si = 0;
+         for (int64_t i = 0; i < n && i < 128; ++i) {
+             M.ptrs[i] = nullptr;
++            M.status[i] = 255;
+             const int64_t e = experts[i];
+             if (e < 0 || e >= n_expert_ || layer < 0 || layer >= n_layers_) continue;
+             const size_t index = (size_t) layer * (size_t) n_expert_ + (size_t) e;
+@@ -1956,6 +2117,7 @@
+                         std::fprintf(stderr, "strata exl3-metal: locked RAM tier registered: %lld bytes\n", (long long) rr);
+                     }
+                     M.ptrs[i] = r;
++                    M.status[i] = 0;
+                     continue;
+                 }
+             }
+@@ -1973,6 +2135,7 @@
+                     M.stamp[(size_t) s] = M.seq;
+                     M.ptrs[i] = M.slots + (size_t) s * M.stride;
+                     ++M.lru_hits;
++                    M.status[i] = 1;
+                     continue;
+                 }
+                 int vs = -1;
+@@ -1994,6 +2157,7 @@
+                 char vec[512];
+                 bool cached = npg <= sizeof vec && mincore((void*) a, len, vec) == 0;
+                 for (size_t q = 0; cached && q < npg; ++q) if (!(vec[q] & 1)) cached = false;
++                M.status[i] = cached ? 2 : 3;
+                 const uint64_t off0 = (uint64_t) (p - base_);
+                 if (cached && nchunk > 1) {
+                     const uint64_t cb = ((bytes / (uint64_t) nchunk) + 4095) & ~(uint64_t) 4095;
+@@ -2005,6 +2169,7 @@
+             }
+             M.ptrs[i] = dst;
+         }
++        if (M.phase == 1) { M.sj = gjobs; M.sd = gdst; M.spfd = pfd; return; }   // the lane runs the reads itself (phase 2) after it has submitted the in-place experts
+         if (!gjobs.empty()) mac_pull().run_to(pfd, gjobs, gdst);
+         return;
+     }

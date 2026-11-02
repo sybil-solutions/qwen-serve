@@ -1,0 +1,255 @@
+== e3 2026-10-12T05:44:48Z cfg=$HOME/shim/e3.json
+[strata] 2026-10-11 22:44:51 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 0.2 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 64.1 s (215 MB/s); slot 0 verified
+strata exl3-metal: lane ready ($HOME/exl3/metal/libexl3metal.dylib; 5600 slots of 1867776 B registered)
+strata exl3-metal: LRU preloaded with 5600 of 5600 slots by profile rank in 4.8 s (10.46 GB, F_NOCACHE)
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 716 MiB of VRAM free with everything loaded
+READY
+-- mem at READY
+Pages free:                                     3780.
+Pages wired down:                             710188.
+File-backed pages:                            208453.
+Pages stored in compressor:                   245511.
+Pages occupied by compressor:                  56874.
+10588096
+-- decode run 1
+{"i": 0, "wall_s": 21.2, "prompt_n": 29, "prompt_ms": 2612.5, "predicted_n": 300, "predicted_ms": 18616.4, "tok_s": 16.1, "drafts": "213/258", "pageins_mib": 16760, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 15.9, "prompt_n": 35, "prompt_ms": 2561.8, "predicted_n": 253, "predicted_ms": 13320.4, "tok_s": 19.0, "drafts": "134/225", "pageins_mib": 7620, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 20.5, "prompt_n": 29, "prompt_ms": 2476.3, "predicted_n": 292, "predicted_ms": 17993.1, "tok_s": 16.2, "drafts": "138/260", "pageins_mib": 9296, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- decode run 2
+{"i": 0, "wall_s": 21.1, "prompt_n": 29, "prompt_ms": 2249.2, "predicted_n": 300, "predicted_ms": 18815.4, "tok_s": 15.9, "drafts": "211/254", "pageins_mib": 17793, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 15.4, "prompt_n": 35, "prompt_ms": 2565.3, "predicted_n": 241, "predicted_ms": 12819.1, "tok_s": 18.8, "drafts": "128/223", "pageins_mib": 7355, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 19.2, "prompt_n": 29, "prompt_ms": 2454.6, "predicted_n": 265, "predicted_ms": 16708.9, "tok_s": 15.9, "drafts": "119/216", "pageins_mib": 9030, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- mem after decode
+Pages free:                                     4720.
+Pages wired down:                             730351.
+File-backed pages:                            158088.
+Pages stored in compressor:                   221631.
+Pages occupied by compressor:                  50494.
+Pageouts:                                      74357.
+10736320
+-- prefill rows
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 523, in open
+    response = meth(req, response)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 632, in http_response
+    response = self.parent.error(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 561, in error
+    return self._call_chain(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 641, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 523, in open
+    response = meth(req, response)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 632, in http_response
+    response = self.parent.error(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 561, in error
+    return self._call_chain(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 641, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 400: Bad Request
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 517, in open
+    response = self._open(req, data)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 534, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1375, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1350, in do_open
+    r = h.getresponse()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1349, in getresponse
+    response.begin()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 316, in begin
+    version, status, reason = self._read_status()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 285, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1346, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1257, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1303, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1252, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1012, in _send_output
+    self.send(msg)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 952, in send
+    self.connect()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 923, in connect
+    self.sock = self._create_connection(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 843, in create_connection
+    raise err
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 831, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 517, in open
+    response = self._open(req, data)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 534, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1375, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1349, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 61] Connection refused>
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1346, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1257, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1303, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1252, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1012, in _send_output
+    self.send(msg)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 952, in send
+    self.connect()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 923, in connect
+    self.sock = self._create_connection(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 843, in create_connection
+    raise err
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 831, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 517, in open
+    response = self._open(req, data)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 534, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1375, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1349, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 61] Connection refused>
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1346, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1257, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1303, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1252, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1012, in _send_output
+    self.send(msg)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 952, in send
+    self.connect()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 923, in connect
+    self.sock = self._create_connection(
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 843, in create_connection
+    raise err
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socket.py", line 831, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 61] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "$HOME/shim/ls_pf.py", line 10, in <module>
+    r = json.load(urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", body, {"Content-Type": "application/json"}), timeout=3600))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 214, in urlopen
+    return opener.open(url, data, timeout)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 517, in open
+    response = self._open(req, data)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 534, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 494, in _call_chain
+    result = func(*args)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1375, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/urllib/request.py", line 1349, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 61] Connection refused>
+-- mem after prefill
+Pages free:                                    57384.
+Pages wired down:                              69964.
+File-backed pages:                            834905.
+Pages stored in compressor:                   167061.
+Pages occupied by compressor:                  14516.
+Pageouts:                                      74469.
+-- engine log
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 63010 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata exl3-metal: 19000 calls, 11.65 experts/call, gather 1.005 ms, metal 0.275 ms per call, 0 fallbacks, tier 2135, slot LRU 194581 hits / 24637 misses (5600 slots), split jobs 8797, early-A jobs 18980
+strata exl3-metal: 20000 calls, 11.88 experts/call, gather 1.053 ms, metal 0.280 ms per call, 0 fallbacks, tier 2273, slot LRU 208102 hits / 27140 misses (5600 slots), split jobs 9615, early-A jobs 19980
+strata exl3-metal: 21000 calls, 12.15 experts/call, gather 1.085 ms, metal 0.291 ms per call, 0 fallbacks, tier 2375, slot LRU 223501 hits / 29341 misses (5600 slots), split jobs 10410, early-A jobs 20980
+strata exl3-metal: 22000 calls, 12.43 experts/call, gather 1.112 ms, metal 0.296 ms per call, 0 fallbacks, tier 2465, slot LRU 239586 hits / 31498 misses (5600 slots), split jobs 11201, early-A jobs 21980
+strata decode timing: 90 windows, avg T 3.82, 3.33 tokens/window, 209.06 ms/window = verify 197.90 (GPU-reach wait 28.79 + per-layer host 164.49 [plan 0.07 actq 0.00 jobs 86.10 CPU 19.06] + stage 1.07) + commit/emit 1.04 + draft 10.13; per layer-window: CPU experts 15.91 (23.70 entries), VRAM hits 14.48, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2249 ms (12.9 tok/s), 300 generated in 18815 ms (15.9 tok/s), drafts accepted 211 of 254, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 62575 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata serve: suffix drafts: 4 windows, 5 of 7 drafts accepted
+strata exl3-metal: 23000 calls, 12.44 experts/call, gather 1.167 ms, metal 0.299 ms per call, 0 fallbacks, tier 2618, slot LRU 249148 hits / 34420 misses (5600 slots), split jobs 11983, early-A jobs 22975
+strata exl3-metal: 24000 calls, 12.26 experts/call, gather 1.163 ms, metal 0.296 ms per call, 0 fallbacks, tier 2752, slot LRU 255680 hits / 35794 misses (5600 slots), split jobs 12527, early-A jobs 23972
+strata exl3-metal: 25000 calls, 12.03 experts/call, gather 1.128 ms, metal 0.290 ms per call, 0 fallbacks, tier 2871, slot LRU 261702 hits / 36230 misses (5600 slots), split jobs 12838, early-A jobs 24969
+strata exl3-metal: 26000 calls, 11.84 experts/call, gather 1.097 ms, metal 0.284 ms per call, 0 fallbacks, tier 2986, slot LRU 268165 hits / 36718 misses (5600 slots), split jobs 13176, early-A jobs 25968
+strata exl3-metal: 27000 calls, 11.65 experts/call, gather 1.063 ms, metal 0.278 ms per call, 0 fallbacks, tier 3109, slot LRU 274333 hits / 37039 misses (5600 slots), split jobs 13436, early-A jobs 26965
+strata exl3-metal: 28000 calls, 11.51 experts/call, gather 1.030 ms, metal 0.273 ms per call, 0 fallbacks, tier 3214, slot LRU 281738 hits / 37316 misses (5600 slots), split jobs 13662, early-A jobs 27965
+strata decode timing: 116 windows, avg T 2.92, 2.08 tokens/window, 110.51 ms/window = verify 100.93 (GPU-reach wait 17.77 + per-layer host 78.72 [plan 0.06 actq 0.00 jobs 17.13 CPU 6.94] + stage 1.06) + commit/emit 0.83 + draft 8.75; per layer-window: CPU experts 7.15 (10.39 entries), VRAM hits 18.69, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2565 ms (13.6 tok/s), 241 generated in 12819 ms (18.8 tok/s), drafts accepted 128 of 223, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 104043 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata exl3-metal: 29000 calls, 11.50 experts/call, gather 1.072 ms, metal 0.274 ms per call, 0 fallbacks, tier 3352, slot LRU 290201 hits / 39988 misses (5600 slots), split jobs 14098, early-A jobs 28965
+strata exl3-metal: 30000 calls, 11.50 experts/call, gather 1.070 ms, metal 0.275 ms per call, 0 fallbacks, tier 3463, slot LRU 300148 hits / 41358 misses (5600 slots), split jobs 14761, early-A jobs 29964
+strata exl3-metal: 31000 calls, 11.51 experts/call, gather 1.048 ms, metal 0.274 ms per call, 0 fallbacks, tier 3554, slot LRU 311147 hits / 41987 misses (5600 slots), split jobs 15159, early-A jobs 30963
+strata exl3-metal: 32000 calls, 11.49 experts/call, gather 1.024 ms, metal 0.272 ms per call, 0 fallbacks, tier 3628, slot LRU 321763 hits / 42421 misses (5600 slots), split jobs 15463, early-A jobs 31961
+strata exl3-metal: 33000 calls, 11.43 experts/call, gather 0.998 ms, metal 0.269 ms per call, 0 fallbacks, tier 3708, slot LRU 330868 hits / 42748 misses (5600 slots), split jobs 15703, early-A jobs 32961
+strata exl3-metal: 34000 calls, 11.45 experts/call, gather 0.974 ms, metal 0.268 ms per call, 0 fallbacks, tier 3793, slot LRU 342404 hits / 43018 misses (5600 slots), split jobs 15900, early-A jobs 33961
+strata exl3-metal: 35000 calls, 11.45 experts/call, gather 0.952 ms, metal 0.268 ms per call, 0 fallbacks, tier 3880, slot LRU 353470 hits / 43355 misses (5600 slots), split jobs 16141, early-A jobs 34960
+strata decode timing: 146 windows, avg T 2.48, 1.82 tokens/window, 114.44 ms/window = verify 105.46 (GPU-reach wait 17.24 + per-layer host 83.79 [plan 0.05 actq 0.00 jobs 18.03 CPU 11.14] + stage 1.07) + commit/emit 0.77 + draft 8.21; per layer-window: CPU experts 11.09 (16.63 entries), VRAM hits 8.12, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2455 ms (11.8 tok/s), 265 generated in 16709 ms (15.9 tok/s), drafts accepted 119 of 216, 1 checkpoints
+strata serve: resident RAM: 0.20 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata serve: expert tiers: GPU 56933 hits this request; since the start RAM 0 blobs, files 0 blobs 13783.6 MB read
+strata pf-mac: 3 sets x 400 slots (2.24 GB, mlock FAILED) registered per prompt, fd 14
+strata generate: the file tier reads through the file cache (through the file cache (no unbuffered reads on this platform))
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata exl3-metal: LRU preloaded with 5600 of 5600 slots by profile rank in 4.8 s (10.46 GB, F_NOCACHE)
+strata exl3-metal: locked RAM tier registered: 214171648 bytes
+strata pf-mac: 3 sets x 400 slots (2.24 GB, mlock FAILED) registered per prompt, fd 11
+strata generate: the file tier reads through the file cache (through the file cache (no unbuffered reads on this platform))
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+== done 2026-10-12T05:52:23Z

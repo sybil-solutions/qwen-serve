@@ -1,0 +1,73 @@
+== S1_spin0default_slim0 2026-10-11T17:02:55Z cfg=$HOME/shim/strata-exl3p256-t2.json
+STRATA_DECODE_TIMING=1
+STRATA_EXL3_KEEP_MASK=$HOME/exl3/placement/t2/keep_mask.bin
+STRATA_EXL3_SLIM=0
+STRATA_VERIFY_LAYER_AR=1
+[strata] 2026-10-11 10:02:57 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_p256 --native $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/t2/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --no-prefill-borrow
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata serve: 1225 MiB of VRAM free with everything loaded
+READY
+ready after 168 s
+{"i": 0, "wall_s": 19.4, "prompt_n": 29, "prompt_ms": 4881.9, "predicted_n": 300, "predicted_ms": 14475.2, "tok_s": 20.7, "drafts": "229/259", "head": "```python def is_prime(n: int) -> bool:     \"\"\"Check whether a number is prime.\"\"\"     if "}
+{"i": 1, "wall_s": 17.1, "prompt_n": 35, "prompt_ms": 1437.8, "predicted_n": 262, "predicted_ms": 15618.4, "tok_s": 16.8, "drafts": "141/235", "head": "At the core of a mixture-of-experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 20.5, "prompt_n": 29, "prompt_ms": 992.3, "predicted_n": 295, "predicted_ms": 19521.0, "tok_s": 15.1, "drafts": "126/210", "head": "The rain had finally cleared the horizon, but the sea remained a ghostly presence in the b"}
+-- engine log
+[strata] 2026-10-11 10:02:57 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_p256 --native $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/t2/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --no-prefill-borrow
+strata generate: EXL3 expert pack (exl3_experts.txt v1, 256 experts x 1862400 B)
+strata generate: this CPU has no AVX-512: the expert kernels run on ggml-cpu vec_dot (no AVX2: the older-CPU build) (multi-token for the i-quant gate/up rows)
+strata generate: native pack: $HOME/exl3/pack_p256 experts (largest blob 1.86 MB), token embedding Q3_K in mapped host memory (260 MiB, 18.4 s)
+strata generate: 1356 MiB of weights loaded from $HOME/exl3/pack_p256 in 7.7 s (303 canonical tensors skipped: served natively)
+strata generate: 301 native projection matrices, 1376.20 MiB of weights, in 9.6 s
+strata generate: the SSD is kept awake while rows are read: one page of the table after 100 ms without a read, until 60 s after the last request (STRATA_SSD_KEEPALIVE=0 turns it off)
+strata generate: profile $HOME/exl3/placement/t2/profile.bin: 12288 ranked pairs, built for 12288 slots
+strata generate: PLE on, table 320001536 rows of $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf
+strata mtp: draft layer loaded, 809 MiB of VRAM (experts 675, dense 111), files read in 4.37 s (180 MiB/s)
+strata generate: experimental native Q5_K head, 437043200 bytes, in 3.0 s
+strata generate: GPU 0: NVIDIA GeForce RTX 3090 (tgcu USB), compute capability 8.6
+strata generate: experts via mmap (--mmap-experts; the A/B arm of R2.1)
+strata generate: CPU pool tasks/phase: 30 (automatic), participating threads: 10
+strata generate: 9 pool workers on logical processors 1,2,3,4,5,6,7,8,9, the host thread on 0 (draining too) (--host-core first)
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata generate: expert cache 9296 slots, 16.12 GiB of VRAM; policy is
+strata generate: the GPU computes the experts in the cache; it rounds differently from the CPU,
+                 so a reply can differ slightly from a run without the cache (same quality:
+                 bench/results/2026-09-27-cache-parity).
+                 PROFILE, ranked by routing frequency, no eviction.
+strata generate: the profile fill asks for 256 pairs ahead (STRATA_FILL_AHEAD)
+strata generate: pre-filled 9296 of 9296 slots from the profile in 111.5 s (155 MB/s); slot 0 verified
+strata generate: R4 hit path ON - resident experts are computed on the GPU
+strata generate: 9 expert-pool workers + the host thread
+strata generate: session is up (engine 0.1.41)
+strata generate: token graph hit path: 9296 resident experts, decided on the device
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata hc: CUDA0: the hyper-connection read runs as staged (the norm per token and stream, the down projection's activations staged ahead by cp.async); checked bit for bit against the plain read on this card (STRATA_HC_SPLIT=1 or 0 for the earlier ones)
+strata exl3: keep mask $HOME/exl3/placement/t2/keep_mask.bin loaded (quality probe)
+strata verify: per-layer zero-doorbell: 38 of 48 layers 100% resident, 10 doorbell layers
+strata verify: window up to 6 tokens, 62.2 MiB of device buffers
+strata mtp: draft head over 106299 tokens (178.4 MiB)
+strata serve: 1225 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (1225 MiB of VRAM free)
+strata verify: captured the 6-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 4-token window (1223 MiB of VRAM free)
+strata verify: captured the 4-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 1-token window (1107 MiB of VRAM free)
+strata verify: captured the 1-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 3-token window (1105 MiB of VRAM free)
+strata verify: captured the 3-token window (upload cudaSuccess, sync cudaSuccess)
+strata verify: capturing the 2-token window (1103 MiB of VRAM free)
+strata verify: captured the 2-token window (upload cudaSuccess, sync cudaSuccess)
+strata decode timing: 74 windows, avg T 4.50, 4.05 tokens/window, 195.61 ms/window = verify 184.69 (GPU-reach wait 26.00 + per-layer host 151.10 [plan 0.02 actq 0.00 jobs 0.01 CPU 83.73] + stage 1.02) + commit/emit 1.01 + draft 9.91; per layer-window: CPU experts 5.33 (8.45 entries), VRAM hits 0.92, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 4882 ms (5.9 tok/s), 300 generated in 14475 ms (20.7 tok/s), drafts accepted 229 of 259, 1 checkpoints
+strata serve: decode expert cache hit rate: 9.8% (3275 hits / 33300 lookups)
+strata serve: expert tiers: GPU 3275 hits this request; since the start RAM 0 blobs, files 0 blobs 55212.7 MB read
+strata serve: suffix drafts: 26 windows, 124 of 130 drafts accepted
+strata decode timing: 123 windows, avg T 2.91, 2.13 tokens/window, 126.98 ms/window = verify 117.67 (GPU-reach wait 20.35 + per-layer host 91.77 [plan 0.01 actq 0.00 jobs 0.01 CPU 29.36] + stage 1.00) + commit/emit 0.85 + draft 8.45; per layer-window: CPU experts 3.70 (5.51 entries), VRAM hits 0.55, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 1438 ms (24.3 tok/s), 262 generated in 15618 ms (16.8 tok/s), drafts accepted 141 of 235, 1 checkpoints
+strata serve: decode expert cache hit rate: 9.1% (3270 hits / 35800 lookups)
+strata serve: expert tiers: GPU 3270 hits this request; since the start RAM 0 blobs, files 0 blobs 99044.3 MB read
+strata decode timing: 171 windows, avg T 2.23, 1.73 tokens/window, 114.16 ms/window = verify 106.01 (GPU-reach wait 18.02 + per-layer host 82.54 [plan 0.01 actq 0.00 jobs 0.01 CPU 23.29] + stage 1.00) + commit/emit 0.68 + draft 7.47; per layer-window: CPU experts 3.30 (4.49 entries), VRAM hits 0.15, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 992 ms (29.2 tok/s), 295 generated in 19521 ms (15.1 tok/s), drafts accepted 126 of 210, 1 checkpoints
+strata serve: decode expert cache hit rate: 3.3% (1259 hits / 38100 lookups)
+strata serve: expert tiers: GPU 1259 hits this request; since the start RAM 0 blobs, files 0 blobs 152148.8 MB read
+strata serve: suffix drafts: 1 windows, 0 of 3 drafts accepted
+DONE

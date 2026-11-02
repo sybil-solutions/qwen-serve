@@ -1,0 +1,8 @@
+cuda_cuobjdump/linux-sbsa/cuda_cuobjdump-linux-sbsa-13.4.92-archive.tar.xz
+cuda_nvdisasm/linux-sbsa/cuda_nvdisasm-linux-sbsa-13.4.92-archive.tar.xz
+cuda_nvcc/linux-sbsa/cuda_nvcc-linux-sbsa-13.4.92-archive.tar.xz
+cuda_cudart/linux-sbsa/cuda_cudart-linux-sbsa-13.4.92-archive.tar.xz
+cccl/linux-sbsa/cccl-linux-sbsa-13.3.4.3.1-archive.tar.xz
+cuda_crt/linux-sbsa/cuda_crt-linux-sbsa-13.4.92-archive.tar.xz
+libnvvm/linux-sbsa/libnvvm-linux-sbsa-13.4.92-archive.tar.xz
+cuda_profiler_api/linux-sbsa/cuda_profiler_api-linux-sbsa-13.4.92-archive.tar.xz

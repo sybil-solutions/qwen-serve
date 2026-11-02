@@ -1,0 +1,21 @@
+== final_g4 2026-10-12T05:09:08Z
+[strata] 2026-10-11 22:09:11 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 64.1 s (215 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.99 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 922 MiB of VRAM free with everything loaded
+READY
+-- needle 32000
+{"tokens": 32000, "depth": 50, "word": "meadow-copper-504", "found": true, "first_line_ok": true, "prompt_n": 33253, "cache_n": 0, "prompt_ms": 91281.3, "prefill_tok_s": 364.3, "ttft_s": 91.3, "predicted_n": 133, "decode_tok_s": 15.2, "drafts": "72/112", "wall_s": 100.1, "answer": "meadow-copper-504\n\nThis text is a comprehensive technical documentation set for \"Strata,\" a local AI inference engine running the Qwen3.8-Flash-Next model. It p"}
+-- vision
+Traceback (most recent call last):
+  File "$HOME/shim/final_vision.py", line 4, in <module>
+    from PIL import Image, ImageDraw, ImageFont
+ModuleNotFoundError: No module named 'PIL'
+-- needle 190000
+{"tokens": 190000, "depth": 50, "word": "meadow-copper-504", "found": true, "first_line_ok": true, "prompt_n": 188835, "cache_n": 0, "prompt_ms": 493846.2, "prefill_tok_s": 382.4, "ttft_s": 493.8, "predicted_n": 134, "decode_tok_s": 13.9, "drafts": "66/121", "wall_s": 503.6, "answer": "meadow-copper-504\n\nThis text is a comprehensive technical documentation suite for \"Strata,\" a software project designed to run the Qwen3.8-Flash-Next large lang"}
+== done 2026-10-12T05:21:16Z

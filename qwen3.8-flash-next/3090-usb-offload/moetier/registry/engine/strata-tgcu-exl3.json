@@ -1,0 +1,32 @@
+{
+ "id": "strata-tgcu-exl3",
+ "lanes": {
+  "gpu": {
+   "reads": "vram",
+   "per_layer_ms": 0.0,
+   "per_expert_ms": 0.02,
+   "per_extra_token_ms": 0.004,
+   "note": "3090 exl3_moe_coop, all picks resident (zero-doorbell graph). Fitted with calibration.fixed_ms to R9/R10 (168/124/113 ms per window)."
+  },
+  "cpu": {
+   "reads": "ram",
+   "per_layer_ms": 3.5,
+   "per_expert_ms": 0.25,
+   "per_extra_token_ms": 0.03,
+   "note": "CALIBRATED to the full-512 e2e run F1 (2026-10-11): per_layer = measured non-CPU doorbell handshake with SLIM=1 + spin0 ((303.6-196.0)/31 doorbell layers = 3.5 ms); per_expert 0.25 = EFFECTIVE pool wall per distinct cold expert (196 ms / 564 per window, 0.35 incl. m>1) of which NEON compute is ~0.155-0.2 (cpu_bench.log) and the rest is mapped-page overhead; the lookahead madvise/F_RDADVISE prefetch (F2) changed nothing (<=2%)."
+  }
+ },
+ "levers": {
+  "metal_parallel": {
+   "per_expert_ms": 0.089,
+   "per_extra_token_ms": 0.016,
+   "note": "NEON (0.155) and Metal (13 experts m=1 2.72 ms = 0.209) as parallel lanes: harmonic combination; Metal measured with a naive kernel (mtl_exl3.m)"
+  },
+  "handshake_one_roundtrip_ms": 3.5,
+  "measured": {
+   "slim1_vs_slim0": "163.6/99.3/90.2 vs 195.6/127.0/114.2 ms/window on the P256 stand-in",
+   "full512_F1": "759/376/334 ms/window = 4.4/5.6/5.4 tok/s (3.33/2.12/1.81 tok/window)"
+  }
+ },
+ "source": "R1..R11, S1/S2, F1/F2 split_run logs, usb_bench.log, cpu_bench.log, mtl bench 2026-10-11"
+}

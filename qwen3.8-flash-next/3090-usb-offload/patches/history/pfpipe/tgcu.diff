@@ -1,0 +1,133 @@
+--- tgcu.py.orig	2026-10-11 18:50:58.688496079 -0400
++++ tgcu.py	2026-10-11 18:41:13.469933758 -0400
+@@ -3,6 +3,7 @@
+ # batches and submits them on tinygrad's compute ring. Bulk copies go through tinygrad's USB copy path.
+ from __future__ import annotations
+ import struct, re, os, time, array
++from tinygrad.runtime.support import usb as _usbmod
+ from dataclasses import dataclass, field
+ from tinygrad import Device
+ from tinygrad.device import Buffer, BufferSpec, BufferStorage
+@@ -613,7 +614,113 @@
+       _t3 = time.perf_counter(); p = _PROF_ACC[1 if ring_cq else 0]
+       p[0] += _t2 - _t1; p[1] += _t3 - _t2; p[2] += 1
+ 
++  # ---- pipelined bulk transfers (PrefillPipeline 2026-10-12). Measured on the idle link (duplex_prof.py): one 392 KB upload round
++  # costs 1.69 ms = CE-job submit 0.65 (4 BAR pokes) + arm 0.08 + bulk OUT 0.44 + CE wait 0.50; the stock loop pays all four serially per round.
++  # Here ONE pushbuffer holds the copy-engine jobs of the whole message (one doorbell), and the uploads alternate between two SRAM
++  # regions, so the copy engine drains region k while the bulk OUT fills the other. Downloads queue one hold-gated job per round
++  # (a single doorbell for the message; the host releases a job with one poke after the arm). TGCU_PIPE_MIN (bytes, default 1 MiB; 0 = off).
++  PIPE_MIN = int(os.getenv("TGCU_PIPE_MIN", str(1 << 20)))
++  PIPE_SLOTS = int(os.getenv("TGCU_PIPE_SLOTS", "12"))     # slots per upload region (2 regions of 12 of the 25 transfer slots)
++  PIPE_DOWN = int(os.getenv("TGCU_PIPE_DOWN", str(400 << 10)))   # download payload bytes per round (the SRAM read starts at slot 0: wire = prefix + payload)
++
++  def _wait_sem(self, value:int, timeout_s:float=5.0):
++    t0 = time.perf_counter()
++    while ((struct.unpack("<I", self.mv[self.sem_off:self.sem_off + 4])[0] - value) & 0xffffffff) >= 0x80000000:
++      if time.perf_counter() - t0 > timeout_s: raise RuntimeError("async copy timeout (pipelined)")
++
+   def h2d(self, dst:int, data:bytes):
++    if self.PIPE_MIN and len(data) >= self.PIPE_MIN: return self._h2d_pipe(dst, data)
++    return self._h2d_rounds(dst, data)
++
++  def d2h(self, src:int, n:int) -> bytes:
++    if self.PIPE_MIN and n >= self.PIPE_MIN: return self._d2h_pipe(src, n)
++    return self._d2h_rounds(src, n)
++
++  def _h2d_pipe(self, dst:int, data:bytes):
++    nvg, nvm = onv.nv_gpu, onv.nvm
++    SL = self.slot_size
++    cap = self.PIPE_SLOTS * SL                              # bytes per region
++    rb = cap - 512                                          # payload per round (wire == cap)
++    n = len(data)
++    rounds = (n + rb - 1) // rb
++    mv = memoryview(data) if not isinstance(data, memoryview) else data
++    sem = self.va + self.sem_off
++    cmds, plan = [], []
++    for i in range(rounds):
++      o = i * rb
++      m = min(rb, n - o)
++      wire = round_up(m + 8, 512)
++      reg = i & 1
++      base = self.sram_va + reg * cap                       # region 0 = slots 5.., region 1 = 5 + PIPE_SLOTS..
++      self.gate_seq = (self.gate_seq + 1) & 0xffffffff
++      gate = 0x5A17C0DE00000000 | self.gate_seq
++      self.sem_value += 1
++      cmds += nvm(0, nvg.NVC56F_SEM_ADDR_LO, (base + wire - 8) & 0xffffffff, (base + wire - 8) >> 32, gate & 0xffffffff, gate >> 32,
++                  onv.nv_flags("NVC56F_SEM_EXECUTE", operation="acquire", payload_size="64bit"))
++      d = dst + o
++      cmds += nvm(4, nvg.NVC6B5_OFFSET_IN_UPPER, base >> 32, base & 0xffffffff, d >> 32, d & 0xffffffff)
++      cmds += nvm(4, nvg.NVC6B5_LINE_LENGTH_IN, m)
++      cmds += nvm(4, nvg.NVC6B5_LAUNCH_DMA, onv.nv_flags("NVC6B5_LAUNCH_DMA", data_transfer_type="non_pipelined",
++                                                           src_memory_layout="pitch", dst_memory_layout="pitch"))
++      cmds += nvm(4, nvg.NVC6B5_SET_SEMAPHORE_A, sem >> 32, sem & 0xffffffff, self.sem_value & 0xffffffff)
++      cmds += nvm(4, nvg.NVC6B5_LAUNCH_DMA, onv.nv_flags("NVC6B5_LAUNCH_DMA", flush_enable="true", semaphore_type="release_one_word_semaphore"))
++      plan.append((o, m, wire, reg, gate, self.sem_value))
++    self._submit(cmds)                                      # the jobs wait on their sentinels; the pushbuffer is free again once the last one has run
++    usb = self.usb.usb
++    ub = self.usb.usb
++    for i, (o, m, wire, reg, gate, sv) in enumerate(plan):
++      if i >= 2: self._wait_sem(plan[i - 2][5])             # this region's previous job has drained it
++      if wire > len(ub._bulk_mv): ub._bulk_buf, ub._bulk_mv = _usbmod.alloc_cbuffer(wire)
++      ub._bulk_mv[:m] = mv[o:o + m]                         # straight into libusb's buffer (stock bulk_write copies twice more)
++      ub._bulk_mv[wire - 8:wire] = struct.pack("<Q", gate)
++      ub.control_write(0xF2, value=wire // 512, index=(self.slot0 + reg * self.PIPE_SLOTS) | (((wire + SL - 1) // SL) << 8))
++      _usbmod.checked(_usbmod.libusb.libusb_bulk_transfer, "bulk OUT 0x02 failed")(ub.handle, 0x02, ub._bulk_buf, wire, ub._transferred, 1000)
++      assert ub._transferred.value == wire, f"bulk OUT short write: {ub._transferred.value}/{wire} bytes"
++    self._wait_sem(plan[-1][5])
++
++  def _d2h_pipe(self, src:int, n:int, into=None) -> bytes|None:
++    nvg, nvm = onv.nv_gpu, onv.nvm
++    SL = self.slot_size
++    R = min(self.PIPE_DOWN, self.iface_transfer_size)
++    rounds = (n + R - 1) // R
++    sem, ha = self.va + self.sem_off, self.hold_va
++    base_tok = self.hold_tok
++    cmds, plan = [], []
++    for i in range(rounds):
++      o = i * R
++      m = min(R, n - o)
++      wire = round_up(self.prefix + m, 512)
++      self.sem_value += 1
++      tok = base_tok + 1 + i
++      cmds += nvm(0, nvg.NVC56F_SEM_ADDR_LO, ha & 0xffffffff, ha >> 32, tok & 0xffffffff, 0,
++                  onv.nv_flags("NVC56F_SEM_EXECUTE", operation="acq_strict_geq", payload_size="32bit"))   # released by the host after its arm
++      s = src + o
++      cmds += nvm(4, nvg.NVC6B5_OFFSET_IN_UPPER, s >> 32, s & 0xffffffff, self.sram_va >> 32, self.sram_va & 0xffffffff)
++      cmds += nvm(4, nvg.NVC6B5_LINE_LENGTH_IN, m)
++      cmds += nvm(4, nvg.NVC6B5_LAUNCH_DMA, onv.nv_flags("NVC6B5_LAUNCH_DMA", data_transfer_type="non_pipelined",
++                                                           src_memory_layout="pitch", dst_memory_layout="pitch"))
++      cmds += nvm(4, nvg.NVC6B5_SET_SEMAPHORE_A, self.cq_va >> 32, self.cq_va & 0xffffffff, 0)
++      cmds += nvm(4, nvg.NVC6B5_LAUNCH_DMA, onv.nv_flags("NVC6B5_LAUNCH_DMA", flush_enable="true", semaphore_type="release_one_word_semaphore"))
++      cmds += nvm(4, nvg.NVC6B5_SET_SEMAPHORE_A, sem >> 32, sem & 0xffffffff, self.sem_value & 0xffffffff)
++      cmds += nvm(4, nvg.NVC6B5_LAUNCH_DMA, onv.nv_flags("NVC6B5_LAUNCH_DMA", flush_enable="true", semaphore_type="release_one_word_semaphore"))
++      plan.append((o, m, wire, tok, self.sem_value))
++    self.hold_tok = base_tok + rounds
++    self._submit(cmds)
++    usb = self.usb.usb
++    hmv = self.ctx.mapped_mv
++    out = into if into is not None else bytearray(n)
++    for o, m, wire, tok, sv in plan:
++      usb.control_write(0xF2, value=(wire // 512) | 0x8000, index=0 | (((wire + SL - 1) // SL) << 8))
++      hmv[self.hold_off:self.hold_off + 4] = struct.pack("<I", tok & 0xffffffff)
++      got = usb.bulk_read(wire, timeout=30000)
++      out[o:o + m] = got[self.prefix:self.prefix + m]
++    self._wait_sem(plan[-1][4])
++    return bytes(out) if into is None else None
++
++  def d2h_into(self, src:int, n:int, into):   # download n bytes straight into a writable buffer (one copy fewer than d2h)
++    self._d2h_pipe(src, n, into)
++
++  def _h2d_rounds(self, dst:int, data:bytes):
+     # tinygrad's upload order: the copy engine job is queued FIRST, gated by an acquire on a sentinel (the last 8 bytes of the
+     # bulk payload), then the bridge is armed (0xF2) and the bulk OUT sent; the payload releases the copy engine, so nothing
+     # is written to the BAR after the payload moves. The arm MUST follow the submission: a BAR write between the arm and
+@@ -638,7 +745,7 @@
+         p = _PROF_ACC[0]; p[3] += _t[1] - _t[0]; p[4] += _t[2] - _t[1]
+         if p[2] % 200 == 0 and p[2]: _prof_dump()
+ 
+-  def d2h(self, src:int, n:int) -> bytes:
++  def _d2h_rounds(self, src:int, n:int) -> bytes:
+     out = bytearray()
+     for o in range(0, n, self.CHUNK):
+       m = min(self.CHUNK, n - o)

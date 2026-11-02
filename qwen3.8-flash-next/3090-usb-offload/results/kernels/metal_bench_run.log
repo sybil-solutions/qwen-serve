@@ -1,0 +1,83 @@
+device: Apple M4
+loaded 290 blobs of layer 24 (540 MB) in 96 ms
+registered 540147712 bytes NoCopy
+
+== DECODE: exl3m_moe_rows (sync: encode + submit + GPU + wait + y copy), cold-ish blobs rotating over 290 experts ==
+m  E  pairs |  min   med  mean   p95 ms (wall/call) | gpu_ms(med) encode_ms copy_ms | NEON 1-thread ms (same experts, 1 row each)
+1 10   10 | 0.615 0.659 0.709 1.021 | 0.466 0.005 0.001 | 6.50 (E x 1 row)
+1 13   13 | 0.745 0.793 0.834 1.263 | 0.600 0.005 0.000 | 8.61 (E x 1 row)
+1 20   20 | 1.071 1.107 1.129 1.205 | 0.900 0.006 0.000 | 13.66 (E x 1 row)
+2 10   20 | 0.686 0.711 0.756 1.108 | 0.513 0.005 0.001 | 6.50 (E x 1 row)
+2 13   26 | 0.827 0.859 0.895 1.182 | 0.661 0.005 0.001 | 8.58 (E x 1 row)
+2 20   40 | 1.161 1.190 1.217 1.330 | 0.995 0.006 0.001 | 13.71 (E x 1 row)
+4 10   20 | 0.681 0.714 0.748 1.077 | 0.510 0.005 0.001 | 6.49 (E x 1 row)
+4 13   26 | 0.823 0.858 0.888 0.977 | 0.658 0.006 0.001 | 8.58 (E x 1 row)
+4 20   40 | 1.155 1.193 1.232 1.603 | 0.988 0.006 0.001 | 13.61 (E x 1 row)
+DECODE PROFILE m=1 E=13 (GPU ms median of 200, kernels skipped):
+  baseline                 0.598 ms
+  -rot                     0.592 ms
+  -gemv_gate_up            0.209 ms
+  -mid                     0.595 ms
+  -gemv_down               0.410 ms
+  -comb                    0.588 ms
+  -all kernels (floor)     0.000 ms
+m=1 E=10 wait_spin=1 unretained=0: min 0.609 med 0.638 mean 0.674 p95 0.754 ms
+m=1 E=10 wait_spin=0 unretained=1: min 0.635 med 0.645 mean 0.680 p95 0.863 ms
+m=1 E=10 wait_spin=1 unretained=1: min 0.613 med 0.636 mean 0.648 p95 0.652 ms
+floor (m=1, 1 expert): min 0.212 med 0.246 mean 0.251 p95 0.268 ms
+
+== PREFILL: exl3m_moe_prefill, top-10 over 290 experts (one layer), warm blobs in registered NoCopy region ==
+tokens pairs chunk(rows,experts) | ms/layer (min med) | gpu_ms(med) encode copy | eff TFLOPS (useful, med) | tok/s if 48 layers like this
+ 2048  20480 (4096,16) |   130.2   130.6 |   129.1   0.7   1.0 | 1.54 | 327
+ 2048  20480 (4096,32) |   129.0   129.2 |   127.9   0.6   1.0 | 1.56 | 330
+ 2048  20480 (8192,32) |   129.0   129.2 |   127.9   0.6   1.0 | 1.56 | 330
+ 2048  20480 (2048,16) |   130.2   130.6 |   129.3   0.6   1.0 | 1.54 | 327
+ 8192  81920 (4096,16) |   346.2   347.6 |   341.6   3.0   4.6 | 2.32 | 491
+ 8192  81920 (4096,32) |   347.1   349.3 |   342.3   3.2   5.1 | 2.31 | 489
+ 8192  81920 (8192,32) |   343.4   344.3 |   338.8   2.9   4.5 | 2.34 | 496
+ 8192  81920 (2048,16) |   348.3   350.2 |   343.6   3.1   5.6 | 2.30 | 487
+PROFILE 8192 tokens (skip kernels, GPU ms med of 5):
+  baseline                                                     341.5 ms
+  -rot                                                         321.0 ms
+  -decode_w                                                    300.9 ms
+  -gemm_gu                                                     175.7 ms
+  -mid                                                         335.5 ms
+  -gemm_d                                                      257.2 ms
+  -comb                                                        318.8 ms
+  -decode_w -gemm_gu -gemm_d (tables+rot+mid+comb only)        50.1 ms
+
+== CONCURRENCY: Metal decode calls (m=1, E=13) vs NEON expert threads (1 row, whole expert per task), 2.0 s windows ==
+metal alone: 1212 calls/s, mean 0.825 ms p95 0.905 ms
+NEON  4 threads: alone 5391 experts/s | with Metal loop: 5199 experts/s (-3.6%) ; Metal while NEON: 1139 calls/s mean 0.878 ms p95 1.153 ms (vs alone 0.825 / 0.905: +6.4% mean)
+NEON 10 threads: alone 8735 experts/s | with Metal loop: 8433 experts/s (-3.5%) ; Metal while NEON: 575 calls/s mean 1.737 ms p95 4.875 ms (vs alone 0.825 / 0.905: +110.6% mean)
+
+== SPLIT (m=1 row, one layer): E experts, Em on Metal (async) + E-Em on 9 NEON workers (whole-expert tasks), wall ms per layer call ==
+E  Em | NEON(E-Em) alone | Metal(Em) alone | split wall (min med mean p95)
+10  0 |  1.566 |  0.000 |  1.479  1.566  1.710  2.094
+10  2 |  1.266 |  0.411 |  1.172  1.275  1.264  1.330
+10  3 |  1.176 |  0.457 |  1.149  1.185  1.189  1.240
+10  5 |  1.135 |  0.504 |  1.016  1.144  1.141  1.180
+10  6 |  0.822 |  0.477 |  0.789  0.830  0.848  0.962
+10 10 |  0.000 |  0.653 |  0.625  0.656  0.697  1.050
+13  0 |  2.154 |  0.000 |  1.883  2.154  2.158  2.296
+13  3 |  1.696 |  0.466 |  1.490  1.704  1.734  2.060
+13  4 |  1.355 |  0.493 |  1.257  1.364  1.369  1.464
+13  6 |  1.176 |  0.533 |  1.143  1.185  1.193  1.241
+13  8 |  1.136 |  0.568 |  1.023  1.145  1.141  1.186
+13 13 |  0.000 |  0.788 |  0.753  0.788  0.834  1.510
+20  0 |  3.094 |  0.000 |  2.657  3.094  3.149  3.474
+20  5 |  2.354 |  0.539 |  2.207  2.368  2.384  2.518
+20  6 |  2.308 |  0.497 |  1.944  2.330  2.455  3.438
+20 10 |  1.774 |  0.661 |  1.463  1.812  1.875  2.626
+20 13 |  1.183 |  0.796 |  1.155  1.194  1.353  3.131
+20 20 |  0.000 |  1.105 |  1.067  1.104  1.203  2.048
+
+== MMAP: NoCopy registration of a file-backed mmap of experts.bin (layer 30, 24 blobs), first (cold or cached) vs repeat ==
+register file-backed mmap 44.7 MB: 44695552, 0.04 ms (ok)
+  call 0: 28.455 ms rc=0 (blobs mapped )
+  call 1: 0.761 ms rc=0 (blobs mapped )
+  call 2: 0.734 ms rc=0 (blobs mapped )
+  call 3: 0.740 ms rc=0 (blobs mapped )
+  call 4: 0.731 ms rc=0 (blobs mapped )
+  call 5: 0.727 ms rc=0 (blobs mapped )
+  stats: mapped 227044 staged 0

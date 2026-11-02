@@ -1,0 +1,31 @@
+decode K 1 [(0, 0), (1, 0), (2, 0)]
+decode K 2 [(0, 0), (1, 0), (2, 0)]
+decode K 3 [(0, 0), (1, 0), (2, 0)]
+decode K 4 [(0, 0), (1, 0), (2, 0)]
+decode K 5 [(0, 0), (1, 0), (2, 0)]
+decode K 6 [(0, 0), (1, 0), (2, 0)]
+decode K 7 [(0, 0), (1, 0), (2, 0)]
+decode K 8 [(0, 0), (1, 0), (2, 0)]
+real decode 18 / 18
+had_in [0, 0, 0, 0]
+gemv 60 / 60 max rel RMS 5.587832371028813e-07 negative 1.639
+{'op': 'decode_only', 'tiles': 6400, 'threads': 1, 'us_min': 165.6, 'trellis_GBps': 3.711, 'weights_Gps': 9.89}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 1, 'threads': 1, 'us_min': 191.4, 'us_med': 191.9, 'trellis_GBps': 3.21, 'weights_Gps': 8.56}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 1, 'threads': 4, 'us_min': 91.9, 'us_med': 93.3, 'trellis_GBps': 6.684, 'weights_Gps': 17.82}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 1, 'threads': 10, 'us_min': 76.2, 'us_med': 83.5, 'trellis_GBps': 8.058, 'weights_Gps': 21.49}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 8, 'threads': 1, 'us_min': 451.7, 'us_med': 461.6, 'trellis_GBps': 1.36, 'weights_Gps': 3.63}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 8, 'threads': 4, 'us_min': 179.2, 'us_med': 195.6, 'trellis_GBps': 3.428, 'weights_Gps': 9.14}
+{'op': 'gemv', 'shape': 'expert gate/up 2560x640', 'k': 2560, 'n': 640, 'm': 8, 'threads': 10, 'us_min': 148.5, 'us_med': 155.0, 'trellis_GBps': 4.139, 'weights_Gps': 11.04}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 1, 'threads': 1, 'us_min': 207.5, 'us_med': 210.6, 'trellis_GBps': 2.96, 'weights_Gps': 7.89}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 1, 'threads': 4, 'us_min': 72.2, 'us_med': 73.2, 'trellis_GBps': 8.504, 'weights_Gps': 22.68}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 1, 'threads': 10, 'us_min': 79.0, 'us_med': 84.8, 'trellis_GBps': 7.781, 'weights_Gps': 20.75}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 8, 'threads': 1, 'us_min': 463.9, 'us_med': 464.2, 'trellis_GBps': 1.324, 'weights_Gps': 3.53}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 8, 'threads': 4, 'us_min': 185.0, 'us_med': 186.0, 'trellis_GBps': 3.321, 'weights_Gps': 8.86}
+{'op': 'gemv', 'shape': 'expert down 640x2560', 'k': 640, 'n': 2560, 'm': 8, 'threads': 10, 'us_min': 157.4, 'us_med': 166.6, 'trellis_GBps': 3.903, 'weights_Gps': 10.41}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 1, 'threads': 1, 'us_min': 13028.4, 'us_med': 13431.9, 'trellis_GBps': 1.932, 'weights_Gps': 5.15}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 1, 'threads': 4, 'us_min': 3522.6, 'us_med': 3708.6, 'trellis_GBps': 7.144, 'weights_Gps': 19.05}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 1, 'threads': 10, 'us_min': 1766.2, 'us_med': 1791.9, 'trellis_GBps': 14.249, 'weights_Gps': 38.0}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 8, 'threads': 1, 'us_min': 26048.2, 'us_med': 26320.9, 'trellis_GBps': 0.966, 'weights_Gps': 2.58}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 8, 'threads': 4, 'us_min': 6836.8, 'us_med': 6961.6, 'trellis_GBps': 3.681, 'weights_Gps': 9.82}
+{'op': 'gemv', 'shape': '8192x8192', 'k': 8192, 'n': 8192, 'm': 8, 'threads': 10, 'us_min': 4575.0, 'us_med': 4720.1, 'trellis_GBps': 5.501, 'weights_Gps': 14.67}
+ALL PASS 106/106 -> $HOME/exl3/cpu_receipt.json

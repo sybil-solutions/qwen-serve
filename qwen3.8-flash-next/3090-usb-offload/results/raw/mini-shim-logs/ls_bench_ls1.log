@@ -1,0 +1,28 @@
+== ls1 2026-10-12T00:05:12Z cfg=$HOME/shim/strata-exl3-full512-final-ls1.json
+$HOME/shim/ls_srv.sh:10: no such file or directory: $HOME/shim/serve-engine-lockstep.log
+[strata] 2026-10-11 17:05:14 engine started: $HOME/shim/run-strata-lockstep.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7820 slots
+strata generate: expert cache 7820 slots, 13.56 GiB of VRAM; policy is
+strata generate: pre-filled 7820 of 7820 slots from the profile in 68.5 s (213 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.57 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 600 MiB of VRAM free with everything loaded
+READY
+3000 chars 1338 tokens 14852 ms 90.1 tok/s reply 'OK' wall 15.6
+-- prefill rows (2 each)
+10000 chars 3783 tokens 27040 ms 139.9 tok/s reply 'OK' wall 27.4
+10000 chars 3783 tokens 25556 ms 148.0 tok/s reply 'OK' wall 25.8
+25000 chars 8218 tokens 70332 ms 116.8 tok/s reply 'OK' wall 70.6
+25000 chars 8217 tokens 65599 ms 125.3 tok/s reply 'OK' wall 65.9
+55000 chars 17610 tokens 118304 ms 148.9 tok/s reply 'OK' wall 118.6
+55000 chars 17610 tokens 113697 ms 154.9 tok/s reply 'OK' wall 114.1
+-- exactness
+p1 5557 38339 ms '**Summary:** This document provides comprehensive technical details for the Strata engine, including benchmarked performance metrics, API usage, configuration settings, and internal mechanisms for opt'
+p2 7672 55074 ms "This document details the setup, performance benchmarks, and technical implementation of the Strata engine's SYCL port for Intel Arc GPUs, highlighting its ability to run large models efficiently with"
+-- decode
+{"i": 0, "wall_s": 35.4, "prompt_n": 29, "prompt_ms": 2215.1, "predicted_n": 300, "predicted_ms": 33214.8, "tok_s": 9.0, "drafts": "212/255", "pageins_mib": 28744, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 22.6, "prompt_n": 35, "prompt_ms": 2618.8, "predicted_n": 245, "predicted_ms": 19993.5, "tok_s": 12.3, "drafts": "121/245", "pageins_mib": 7515, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 31.7, "prompt_n": 29, "prompt_ms": 2874.8, "predicted_n": 273, "predicted_ms": 28777.5, "tok_s": 9.5, "drafts": "136/237", "pageins_mib": 14157, "pageouts_mib": 0, "head": "Elias lived in the rhythm of the tides. His world was a narrow spiral of stone, smelling o"}
+== done 2026-10-12T00:17:50Z

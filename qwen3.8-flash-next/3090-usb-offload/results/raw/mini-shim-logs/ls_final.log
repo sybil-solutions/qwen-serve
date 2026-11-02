@@ -1,0 +1,15 @@
+[strata] 2026-10-11 18:03:29 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7640 slots
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.63 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: 618 MiB of VRAM free with everything loaded
+READY
+10000 chars 3783 tokens 16363 ms 231.2 tok/s reply 'OK' wall 17.0
+25000 chars 8218 tokens 46122 ms 178.2 tok/s reply 'OK' wall 46.4
+55000 chars 17610 tokens 48464 ms 363.4 tok/s reply 'OK' wall 48.9
+p1 5557 14898 ms "Strata is a technical documentation page detailing the engine's performance benchmarks, API usage, configuration settings, and internal mechanics for various hardware setups.\n## Speed (measured)"
+p2 7672 29836 ms "This document details the setup, performance benchmarks, and technical implementation of the Strata engine's SYCL port for Intel Arc GPUs, highlighting its ability to run large models efficiently with"
+{"i": 0, "wall_s": 38.8, "prompt_n": 29, "prompt_ms": 2366.7, "predicted_n": 300, "predicted_ms": 36398.6, "tok_s": 8.2, "drafts": "213/252", "pageins_mib": 33905, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 24.4, "prompt_n": 35, "prompt_ms": 2730.2, "predicted_n": 275, "predicted_ms": 21632.9, "tok_s": 12.7, "drafts": "139/235", "pageins_mib": 8492, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 33.1, "prompt_n": 29, "prompt_ms": 3017.2, "predicted_n": 272, "predicted_ms": 30096.8, "tok_s": 9.0, "drafts": "134/241", "pageins_mib": 16543, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+done

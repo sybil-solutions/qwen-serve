@@ -1,0 +1,20 @@
+--- orig-1012-decode/verify.cpp	2026-10-11 18:19:33
++++ $HOME/strata-lockstep/src/core/verify.cpp	2026-10-11 18:59:32
+@@ -61,6 +61,7 @@
+ #include <immintrin.h>
+ 
+ extern "C" void strata_mac_pull_begin(int64_t layer, const int64_t* experts, int64_t n);
++extern "C" int strata_exl3_metal_begin(int64_t layer, const int64_t* cold, int64_t nc, const float* x, const int32_t* ids, const float* w, float* y, int n_tok, int64_t k);   // STRATA_EXL3_METAL_EARLY: start the layer's reads + the in-place experts' Metal job before the CE push is queued; 1 = taken
+ extern "C" void strata_exl3_metal_arm(const float* w, float* y);   // STRATA_EXL3_METAL: weights + output rows of the next pool call
+ extern "C" int strata_exl3_metal_taken();                           // 1: the Metal lane wrote the weighted, reduced CPU rows
+ namespace strata::core {
+@@ -2223,7 +2224,8 @@
+                         if (!dup) cold[nc++] = e;
+                     }
+                 // rows outside r0..r1 have no cold experts by construction of r0/r1 only for the first/last; scan all rows
+-                strata_mac_pull_begin(l, cold, nc);
++                if (!(hs_got && strata_exl3_metal_begin(l, cold, nc, h_x_ + (size_t) tb * N_, ids, h_w_ + (size_t) tb * K_, h_yred_ + (size_t) tb * N_, n, K_)))
++                    strata_mac_pull_begin(l, cold, nc);
+             }
+             if (r0 >= 0) {
+                 if (!hs_got) strata::tgcu::pull(h_x_ + (size_t) (tb + r0) * N_, (size_t) (r1 - r0 + 1) * N_ * sizeof(float));

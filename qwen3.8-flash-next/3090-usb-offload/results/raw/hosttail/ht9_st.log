@@ -1,0 +1,20 @@
+== st 2026-10-12T07:42:12Z cfg=/Users/sero/shim/ht9_st.json
+[strata] 2026-10-12 00:42:15 engine started: /Users/sero/shim/run-strata.sh --serve --pack /Users/sero/exl3/pack_full512 --native /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf /Users/sero/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile /Users/sero/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp /Users/sero/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 0.2 --vram-reserve-mib 400 --no-prefill-borrow --vision
+strata generate: profile /Users/sero/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 400 MiB reserved (+218 MiB for the draft head) -> 7400 slots
+strata generate: expert cache 7400 slots, 12.84 GiB of VRAM; policy is
+strata generate: pre-filled 7400 of 7400 slots from the profile in 63.0 s (219 MB/s); slot 0 verified
+strata exl3-metal: lane ready (/Users/sero/exl3/metal/libexl3metal.dylib; 5600 slots of 1867776 B registered)
+strata exl3-metal: LRU preloaded with 5600 of 5600 slots by profile rank in 4.8 s (10.46 GB, F_NOCACHE)
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 716 MiB of VRAM free with everything loaded
+READY
+-- decode run
+{"i": 0, "wall_s": 18.6, "prompt_n": 29, "prompt_ms": 2436.1, "predicted_n": 300, "predicted_ms": 16120.7, "tok_s": 18.6, "drafts": "213/258", "pageins_mib": 7597, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 14.2, "prompt_n": 35, "prompt_ms": 2387.5, "predicted_n": 253, "predicted_ms": 11825.6, "tok_s": 21.4, "drafts": "134/225", "pageins_mib": 3587, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 18.8, "prompt_n": 29, "prompt_ms": 2395.1, "predicted_n": 292, "predicted_ms": 16343.9, "tok_s": 17.9, "drafts": "138/260", "pageins_mib": 4513, "pageouts_mib": 0, "head": "Elias had not spoken a word in three years. The lighthouse, perched on the jagged teeth of"}
+-- prefill rows
+10000 chars 3783 tokens 13695 ms 276.2 tok/s reply 'OK' wall 14.0
+10000 chars 3783 tokens 11611 ms 325.8 tok/s reply 'OK' wall 11.8
+24000 chars 7905 tokens 18330 ms 431.3 tok/s reply 'OK' wall 18.5
+24000 chars 7905 tokens 16399 ms 482.1 tok/s reply 'OK' wall 16.6

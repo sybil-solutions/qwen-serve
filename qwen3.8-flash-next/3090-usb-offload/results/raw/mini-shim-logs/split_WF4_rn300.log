@@ -1,0 +1,24 @@
+== WF4_rn300 2026-10-11T20:25:27Z cfg=$HOME/shim/strata-exl3-full512-e-rn300.json
+STRATA_DECODE_TIMING=1
+DIED
+  strata generate: 300 native projection matrices, 2018.88 MiB of weights, in 13.5 s
+  strata generate: the SSD is kept awake while rows are read: one page of the table after 100 ms without a read, until 60 s after the last request (STRATA_SSD_KEEPALIVE=0 turns it off)
+  strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+  strata generate: PLE on, table 320001536 rows of $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf
+  strata mtp: draft layer loaded, 809 MiB of VRAM (experts 675, dense 111), files read in 4.15 s (189 MiB/s)
+  strata generate: experimental native Q5_K head, 521472000 bytes, in 3.4 s
+  strata generate: GPU 0: NVIDIA GeForce RTX 3090 (tgcu USB), compute capability 8.6
+  strata generate: experts via mmap (--mmap-experts; the A/B arm of R2.1)
+  strata generate: the file tier reads through the file cache (through the file cache (no unbuffered reads on this platform))
+  strata generate: CPU pool tasks/phase: 30 (automatic), participating threads: 10
+  strata generate: 9 pool workers on logical processors 1,2,3,4,5,6,7,8,9, the host thread on 0 (draining too) (--host-core first)
+  strata generate: expert cache auto: 17.59 GiB free, -300 MiB reserved (+218 MiB for the draft head) -> 9333 slots
+  strata generate: the profile fill asks for 256 pairs ahead (STRATA_FILL_AHEAD)
+  strata generate: pre-filled 0 of 0 slots from the profile in 0.0 s (0 MB/s); slot 0 verified
+  strata generate: 9 expert-pool workers + the host thread
+  strata generate: session is up (engine 0.1.41)
+  strata generate: WARNING: the RAM budget (--resident-budget-gib) cannot be kept (FileExpertSource: the GPU expert cache is not open); every expert the GPU does not hold is read from the model files through the OS file cache (--mmap-experts), which is slower
+  strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+  strata hc: CUDA0: the hyper-connection read runs as staged (the norm per token and stream, the down projection's activations staged ahead by cp.async); checked bit for bit against the plain read on this card (STRATA_HC_SPLIT=1 or 0 for the earlier ones)
+  strata serve: verify: needs the profile-filled VRAM expert tier (--expert-profile and --expert-cache); with --expert-cache auto, no VRAM was left for it - the 'no VRAM is left for the expert cache' line above says how much is short and what makes room (a smaller --max-context, --kv q4_0, setup --draft-vocab en, images on the CPU)
+SERVER FAILED

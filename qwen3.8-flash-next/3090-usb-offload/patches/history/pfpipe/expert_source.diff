@@ -1,0 +1,47 @@
+--- expert_source.cpp.orig	2026-10-11 18:39:18.411839108 -0400
++++ expert_source.cpp	2026-10-11 18:39:31.484267059 -0400
+@@ -1574,6 +1574,7 @@
+         }
+         if (got < j.len) short_reads.fetch_add(1);
+         std::lock_guard<std::mutex> lk(mu);
++        t_done[j.set] = now_ms();
+         if (--pending[j.set] == 0) done_cv.notify_all();
+     }
+     void start(int nt) {
+@@ -1596,8 +1597,10 @@
+         {
+             std::lock_guard<std::mutex> lk(mu);
+             fd = fd_;
+-            for (size_t i = 0; i < j.size(); ++i) q.push_back({j[i].first, j[i].second, d[i], set});
++            uint64_t b = 0;
++            for (size_t i = 0; i < j.size(); ++i) { q.push_back({j[i].first, j[i].second, d[i], set}); b += j[i].second; }
+             pending[set] += (int) j.size();
++            t_q[set] = now_ms(); t_done[set] = 0; bytes[set] = b; njobs[set] = (int) j.size();
+         }
+         cv.notify_all();
+     }
+@@ -1605,6 +1608,10 @@
+         std::unique_lock<std::mutex> lk(mu);
+         done_cv.wait(lk, [&] { return pending[set] == 0; });
+     }
++    static double now_ms() { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
++    double t_q[2] = {0, 0}, t_done[2] = {0, 0};
++    uint64_t bytes[2] = {0, 0};
++    int njobs[2] = {0, 0};
+ };
+ struct PfMac {
+     bool inited = false;
+@@ -1855,7 +1862,13 @@
+             return;
+         }
+         // mode 2: join the reads in flight, read what the prefetch did not cover, hand out the pointers
++        const double tj0 = PfReader::now_ms();
+         P.rd.finish(s);
++        if (static const bool st = std::getenv("STRATA_PF_MAC_RDSTATS") != nullptr; st && P.rd.bytes[s] > 0) {
++            const double tj1 = PfReader::now_ms();
++            std::fprintf(stderr, "strata pf-mac: rd L%lld set%d jobs %d %.0f MB: queued %.1f ms before join, done %.1f ms after queue (%.2f GB/s), join waited %.1f ms\n", (long long) layer, s, P.rd.njobs[s],
++                         (double) P.rd.bytes[s] / 1e6, tj0 - P.rd.t_q[s], P.rd.t_done[s] - P.rd.t_q[s], (double) P.rd.bytes[s] / 1e6 / std::max(1e-3, P.rd.t_done[s] - P.rd.t_q[s]), tj1 - tj0);
++        }
+         if (P.tag[s] != (int) layer) reset();
+         assign();
+         if (!jobs.empty()) { ++P.ondemand; P.nreads += (int64_t) jobs.size(); P.rd.begin(P.fd, s, jobs, dsts); P.rd.finish(s); }

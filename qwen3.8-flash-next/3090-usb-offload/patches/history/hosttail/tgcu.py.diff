@@ -1,0 +1,188 @@
+--- tgcu.py.orig	2026-10-12 02:28:45.760087157 -0400
++++ tgcu.py	2026-10-12 03:22:07.898405217 -0400
+@@ -6,6 +6,7 @@
+ _WAIT_S = float(os.getenv("TGCU_WAIT_S", "0"))       # diagnostic: raise the GPU-wait timeout (the default is the caller's, 10 s)
+ HANG_HOOK = None                                    # set by tgcu_api: prints the handshake regions
+ _HANG_DUMP = os.getenv("TGCU_HANG_DUMP") == "1"      # diagnostic: dump every thread + a native `sample` 8 s into a GPU wait
++_FREE_DEFER = os.getenv("TGCU_FREE_DEFER", "0") != "0"   # cudaFree queues the pending work and hands the block back once it has completed, instead of a full synchronize per free (the lazy x shadows of the prompt lane: 6.9 ms x 1 per chunk-layer)
+ from tinygrad.runtime.support import usb as _usbmod
+ from dataclasses import dataclass, field
+ from tinygrad import Device
+@@ -171,6 +172,7 @@
+     self.code = self.iface.alloc(self.CODE_SIZE)
+     self.code_va, self.code_head = self.code.buf, 0
+     self.allocs: dict[int, tuple[dict, int]] = {}   # va -> (chunk, bytes)
++    self.deferred: list[tuple[int, int]] = []       # TGCU_FREE_DEFER: freed blocks (va, submission that last could read them) not yet handed back to the free lists
+     self.chunks: list[dict] = []
+     self.externs: dict[str, int] = {}  # symbols the driver would resolve, from tgcu_libc.cubin
+     self.pending: list = []  # launches not yet submitted
+@@ -187,17 +189,39 @@
+   CHUNK, GUARD, ALIGN = 256 << 20, 2 << 20, 256
+   zero_fn = None   # set by tgcu_api once its memset kernel is loaded
+   _enc_cache: dict = {}
++  def _release(self, va:int):
++    ch, sz = self.allocs.pop(va)
++    free, off = ch["free"], va - ch["base"]
++    free.append((off, sz)); free.sort()
++    merged = []
++    for o, n in free:  # coalesce neighbours
++      if merged and merged[-1][0] + merged[-1][1] == o: merged[-1] = (merged[-1][0], merged[-1][1] + n)
++      else: merged.append((o, n))
++    ch["free"][:] = merged
++  def _reap(self, block:bool=False):   # hand back the deferred blocks whose submission has completed (block: after a full synchronize)
++    if not self.deferred: return
++    if block: self.synchronize()
++    done = struct.unpack("<Q", self.ctrl_mv[0:8])[0]
++    keep = []
++    for va, sem in self.deferred:
++      if sem <= done: self._release(va)
++      else: keep.append((va, sem))
++    self.deferred = keep
+   def malloc(self, size:int) -> int:
+     sz = round_up(max(size, 1), self.ALIGN)
+-    for ch in self.chunks:
+-      free = ch["free"]
+-      for i, (off, n) in enumerate(free):
+-        if n >= sz:
+-          if n == sz: free.pop(i)
+-          else: free[i] = (off + sz, n - sz)
+-          va = ch["base"] + off
+-          self.allocs[va] = (ch, sz)
+-          return va
++    if self.deferred: self._reap()
++    for attempt in (0, 1):
++      for ch in self.chunks:
++        free = ch["free"]
++        for i, (off, n) in enumerate(free):
++          if n >= sz:
++            if n == sz: free.pop(i)
++            else: free[i] = (off + sz, n - sz)
++            va = ch["base"] + off
++            self.allocs[va] = (ch, sz)
++            return va
++      if attempt == 0 and self.deferred: self._reap(True)   # no room: wait for the freed blocks before a new chunk is carved
++      else: break
+     csize = max(self.CHUNK, round_up(sz, 2 << 20))
+     st = self.iface.alloc(csize + self.GUARD)
+     # as from the CUDA driver, fresh device memory reads as zeros (kernels that reset their own counters rely on it)
+@@ -208,15 +232,13 @@
+     self.allocs[st.buf] = (ch, sz)
+     return st.buf
+   def free(self, va:int):
++    if _FREE_DEFER:   # cudaFree without the stall: the work submitted so far is queued now, the block is reusable once it has completed
++      self.flush()
++      self.deferred.append((va, self.sem_value))
++      self._reap()
++      return
+     self.synchronize()   # cudaFree semantics: the block may be reused right away
+-    ch, sz = self.allocs.pop(va)
+-    free, off = ch["free"], va - ch["base"]
+-    free.append((off, sz)); free.sort()
+-    merged = []
+-    for o, n in free:  # coalesce neighbours
+-      if merged and merged[-1][0] + merged[-1][1] == o: merged[-1] = (merged[-1][0], merged[-1][1] + n)
+-      else: merged.append((o, n))
+-    ch["free"][:] = merged
++    self._release(va)
+   def mapped_alloc(self, size:int) -> tuple[int, int]:  # (device va, offset in the BAR-visible mapped arena)
+     off = self.mapped_head
+     self.mapped_head = round_up(off + size, 0x1000)
+@@ -392,8 +414,12 @@
+     ring = fifo.ring.host
+     ring[(p % fifo.entries) * 8:(p % fifo.entries) * 8 + 8] = struct.pack("<Q", entry)
+     put[0] = p + 1
+-    fifo.gpput.host[0:4] = struct.pack("<I", (p + 1) % fifo.entries)
+-    self.dev.gpu_mmio[0x90 // 4] = fifo.token # usermode doorbell in BAR0, a PCIe write over USB
++    if _POKE1 & 8:   # GPPut and doorbell: one USB control transfer each instead of control + bulk
++      _w32(fifo.gpput.host, 0, (p + 1) % fifo.entries)
++      _w32(self.dev.gpu_mmio, 0x90, fifo.token)
++    else:
++      fifo.gpput.host[0:4] = struct.pack("<I", (p + 1) % fifo.entries)
++      self.dev.gpu_mmio[0x90 // 4] = fifo.token # usermode doorbell in BAR0, a PCIe write over USB
+     for s in self.seg_touched: self.seg_last[s] = self.sem_value   # this submission (or a later one) is the last to read the segments it wrote
+     self.seg_touched.clear()
+ 
+@@ -570,6 +596,10 @@
+ # *** async copy engine: a channel group of its own, so copies run while a compute graph spins on a host flag ***
+ 
+ _PROF = bool(os.getenv("TGCU_PROF"))
++_POKE1 = int(os.getenv("TGCU_POKE1", "0"))   # bit 0: GPPut, 1: doorbell, 2: hold word as ONE USB control transfer instead of control + bulk (the stream write)
++def _w32(mmio, off:int, val:int):
++  a = mmio.addr + off
++  mmio.usb.pcie_request(0x60 if a >> 32 else 0x40, a, val & 0xffffffff)   # 3DW header for a 32-bit address, 4DW above
+ _PROF_ACC = [[0.0, 0.0, 0, 0.0, 0.0], [0.0, 0.0, 0, 0.0, 0.0]]   # [h2d, d2h]: submit s, ce-wait s, calls, control s, bulk s
+ _SUB_ACC = [[0.0, 0.0, 0.0, 0.0, 0.0]]
+ def _prof_dump():
+@@ -617,6 +647,10 @@
+     self.gate_seq = 0
+     self.hold_va, self.hold_off, self.hold_tok = 0, 0, 0   # set by Context once its mapped arena exists
+     self._submit(onv.nvm(4, nvg.NVC6C0_SET_OBJECT, iface.dma_class))
++    # TGCU_TS_G / TGCU_TS_C (microseconds): the graphics/compute group's and the copy group's RM time slice (both 1024 by default).  A short compute slice lets the copy
++    # engine run at full rate while a kernel runs (prompt lane: the y push beside the next chunk's front)
++    for _grp, _ev in ((dev.channel_group, "TGCU_TS_G"), (self.group, "TGCU_TS_C")):
++      if os.getenv(_ev): iface.rm_control(_grp, nvg.NVA06C_CTRL_CMD_SET_TIMESLICE, nvg.NVA06C_CTRL_SET_TIMESLICE_PARAMS(timesliceUs=int(os.environ[_ev])))
+ 
+   def _submit(self, cmds:list[int]):
+     pb = array.array("I", cmds).tobytes()
+@@ -630,9 +664,11 @@
+     self.mv[slot * 8:slot * 8 + 8] = struct.pack("<Q", entry)
+     _s2 = time.perf_counter()
+     self.put += 1
+-    self.mv[self.gpput_off:self.gpput_off + 4] = struct.pack("<I", self.put % self.ENTRIES)
++    if _POKE1 & 1: _w32(self.mv, self.gpput_off, self.put % self.ENTRIES)
++    else: self.mv[self.gpput_off:self.gpput_off + 4] = struct.pack("<I", self.put % self.ENTRIES)
+     _s3 = time.perf_counter()
+-    self.ctx.dev.gpu_mmio[0x90 // 4] = self.token
++    if _POKE1 & 2: _w32(self.ctx.dev.gpu_mmio, 0x90, self.token)
++    else: self.ctx.dev.gpu_mmio[0x90 // 4] = self.token
+     if _PROF:
+       q = _SUB_ACC[0]; q[0] += _s1 - _s0; q[1] += _s2 - _s1; q[2] += _s3 - _s2; q[3] += time.perf_counter() - _s3; q[4] += 1
+       if q[4] % 400 == 0:
+@@ -858,11 +894,12 @@
+     wire, n = self._rd
+     self._rd_arm(wire)
+     self.hold_tok += 1
+-    self.ctx.mapped_mv[self.hold_off:self.hold_off + 4] = struct.pack("<I", self.hold_tok)
++    if _POKE1 & 4: _w32(self.ctx.mapped_mv, self.hold_off, self.hold_tok)
++    else: self.ctx.mapped_mv[self.hold_off:self.hold_off + 4] = struct.pack("<I", self.hold_tok)
+ 
+-  def d2h_collect(self, timeout:int=20000) -> bytes:
++  def d2h_collect(self, timeout:int=20000) -> memoryview:
+     wire, n = self._rd
+-    return bytes(self.usb.usb.bulk_read(wire, timeout=timeout))[self.prefix:self.prefix + n]
++    return self.usb.usb.bulk_read(wire, timeout=timeout)[self.prefix:self.prefix + n]   # a view of the USB buffer, valid until the next bulk transfer: the caller copies it out at once
+ 
+   def h2d_pre(self, dsts:list[tuple[int, int]], nxt:tuple|None=None) -> list[int]:
+     # dsts = [(vram va, nbytes multiple of 4)]; the payload is their concatenation. Queue ONE gated job (acquire on the sentinel,
+@@ -906,4 +943,30 @@
+     for b in parts: buf[p:p + len(b)] = b; p += len(b)
+     buf[wire - 8:] = struct.pack("<Q", gate)
+     self.usb.usb.control_write(0xF2, value=wire // 512, index=self.slot0 | (((wire + self.slot_size - 1) // self.slot_size) << 8))
+-    self.usb.usb.bulk_write(bytes(buf))
++    self.usb.usb.bulk_write(buf)   # a bytearray: bulk_write copies it into its C buffer, no extra bytes() copy
++
++# *** TGCU_HSPROF=1 (diagnostic, HostTailAndPrefill 2026-10-12): per-call wall time of the handshake path + USB transfer counts, printed every 480 rings ***
++if os.getenv("TGCU_HSPROF"):
++  import sys as _sys
++  _HP: dict[str, list] = {}
++  _ring_n = [0]
++  def _wrap(obj, name, label=None):
++    fn = getattr(obj, name); lab = label or name
++    def w(*a, **k):
++      t = time.perf_counter()
++      try: return fn(*a, **k)
++      finally:
++        e = _HP.setdefault(lab, [0.0, 0]); e[0] += time.perf_counter() - t; e[1] += 1
++    setattr(obj, name, w)
++  for _n in ("h2d_pre", "h2d_go", "d2h_release", "d2h_arm", "_submit", "_rd_arm"): _wrap(AsyncCopy, _n)
++  def _collect(self, timeout=20000, _f=AsyncCopy.d2h_collect):
++    t = time.perf_counter()
++    try: return _f(self, timeout)
++    finally:
++      e = _HP.setdefault("d2h_collect", [0.0, 0]); e[0] += time.perf_counter() - t; e[1] += 1
++      _ring_n[0] += 1
++      if _ring_n[0] % 480 == 0:
++        print("[tgcu hsprof] per call ms (n): " + " | ".join(f"{k} {v[0]/v[1]*1e3:.3f} ({v[1]})" for k, v in sorted(_HP.items())), file=_sys.stderr, flush=True)
++        _HP.clear()
++  AsyncCopy.d2h_collect = _collect
++  for _n in ("control_write", "bulk_write", "bulk_read", "control_read"): _wrap(_usbmod.USB3, _n, "usb." + _n)

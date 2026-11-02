@@ -1,0 +1,12 @@
+{
+  "id": "chestnut-3090-usb-macmini-m4",
+  "gpu": { "name": "RTX 3090 (tgcu CUDA shim on tinygrad NV)", "vram_gb": 24, "link": "PCIe Gen3 x2 behind a USB4/ASM2464 'chestnut' dock",
+           "h2d_gbps": 0.188, "vram_bw_gbps": 936 },
+  "cpu": { "name": "Apple M4 (4P+6E), 16 GB LPDDR5X, Metal GPU 10 cores", "cores": 10, "isa": "neon+fp16 FMLAL, AMX/SME via Accelerate" },
+  "nvme": { "name": "Mac mini M4 internal SSD", "bw_gbps": 3.0, "bw_qd1_gbps": 2.26, "latency_ms": 0.05,
+            "note": "measured 2026-10-11 nvme_bench.py, F_NOCACHE random 1.86 MB blobs of experts.bin: 2.26 GB/s qd1, 2.77 (2-8 thr), 3.02 (16 thr); sequential 8 MB 2.23" },
+  "ceilings": {
+    "usb_bar_push_ms": 0.17, "usb_dma_fixed_ms": 1.02, "usb_push_mbps": 188, "usb_pull_mbps": 165,
+    "note": "usb_bench.py idle card: BAR <=256 B 0.17 ms per op; copy-engine DMA fixed ~1.02 ms (push) / 1.07 (pull), 188/165 MB/s asymptote. The doorbell layer measured 6.5 ms non-CPU handshake in the engine (R9)."
+  }
+}

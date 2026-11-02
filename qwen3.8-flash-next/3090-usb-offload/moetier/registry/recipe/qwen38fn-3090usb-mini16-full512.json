@@ -1,0 +1,39 @@
+{
+ "id": "qwen38fn-3090usb-mini16-full512",
+ "status": "calibrated to F1 (full-512 e2e, 17 resident layers, 8770 slots)",
+ "model": "qwen3.8-flash-next-exl3-3.05bpw",
+ "hardware": "chestnut-3090-usb-macmini-m4",
+ "engines": [
+  "strata-tgcu-exl3"
+ ],
+ "budget": {
+  "ram_gb": 16,
+  "runtime_gb": 6.0,
+  "other_gb": 4.0,
+  "vram_expert_slots": 8770,
+  "note": "8770 slots at 8K ctx, --prefill 2048, MTP (IQ3_S dense side; engine log). RAM tier: 1.6 GiB locked + page cache (the sim's 6 GB LRU is the optimistic bound)."
+ },
+ "policy": {
+  "vram": "static placement",
+  "ram": "exclusive, LRU",
+  "seed": "frequency",
+  "exact": "stall",
+  "overlap": true,
+  "prefetch": {
+   "depth": 0,
+   "recall": 0.0
+  }
+ },
+ "calibration": {
+  "fixed_ms": {
+   "1": 17.0,
+   "2": 18.0,
+   "3": 19.0,
+   "4": 20.0,
+   "6": 23.0
+  },
+  "prefill": {
+   "note": "measured: link-bound ~138 s per 2048-token chunk (51 GB of cold experts over the 190 MB/s USB link): 9.5 tok/s @2.5K, 10.8 @4.5K, 12.0 @7.0K"
+  }
+ }
+}

@@ -1,0 +1,119 @@
+--- tgcu_api.py.orig	2026-10-12 02:28:46.032364790 -0400
++++ tgcu_api.py	2026-10-12 03:14:46.739803026 -0400
+@@ -61,14 +61,80 @@
+   try: ctx.flush(); ctx._wait(ctx.sem_value)
+   finally: ctx.pending = saved + ctx.pending
+ def malloc(size:int) -> int: return ctx.malloc(size)
+-def free(va:int) -> int: ctx.free(va); return 0
++def free(va:int) -> int:
++  if dev_watch: _dev_forget(va)   # (before ctx.free: it needs the block's size)
++  ctx.free(va)
++  return 0
+ def mem_info() -> tuple[int, int]:
+   total = 24 << 30
+   used = sum(ch["size"] + ctx.GUARD for ch in ctx.chunks) - sum(n for ch in ctx.chunks for _, n in ch["free"])
+   return total - used - (1 << 30), total
+ 
++# TGCU_H2D_RELAX=1: a bulk host->device push (>= PIPE_MIN, the prompt lane's y rows) waits only for the launches that name its destination range as a kernel
++# argument, not for the whole GPU (cudaMemcpy is stream-ordered, and the engine's lockstep keeps the next chunk's front running behind it).  A range pushed
++# for the third time is watched (the one-off pushes of startup are not): that push is ordered as before, and from then on launches whose parameter words fall
++# inside it are tracked.  Kernels that reach the range through a pointer they were not given (an arena base + offsets) are not seen: the prompt lane's
++# combine kernels take the pointer directly.
++RELAX = os.getenv("TGCU_H2D_RELAX", "0") != "0"
++dev_seen: dict[int, list[int]] = {}          # bulk push destination -> [pushes so far, largest size]
++dev_watch: dict[int, tuple[int, int]] = {}   # watched range key (its lowest address) -> (lo, hi); disjoint
++dev_pend: set[int] = set()                   # watched ranges named by launches still in ctx.pending (or a graph)
++dev_sem: dict[int, int] = {}                 # watched range -> submission of the last launch that named it
++_wlo = np.zeros(0, np.uint64); _whi = np.zeros(0, np.uint64); _wkey: list[int] = []
++def _dev_rebuild():
++  global _wlo, _whi, _wkey
++  items = sorted(dev_watch.items(), key=lambda kv: kv[1][0])
++  _wlo = np.array([lo for _, (lo, _h) in items], np.uint64); _whi = np.array([hi for _, (_l, hi) in items], np.uint64); _wkey = [k for k, _ in items]
++def _dev_forget(va:int):   # a freed block takes every watched range inside it with it
++  end = va + (ctx.allocs[va][1] if va in ctx.allocs else 1 << 40)
++  gone = [k for k, (lo, hi) in dev_watch.items() if va <= lo < end]
++  for k in gone: dev_watch.pop(k); dev_pend.discard(k); dev_sem.pop(k, None)
++  for d in [d for d in dev_seen if va <= d < end]: dev_seen.pop(d)
++  if gone: _dev_rebuild()
++dev_pend_idx: dict[int, int] = {}            # watched range -> number of ctx.pending launches up to and including the last one that names it
++def _dev_refs(cb:bytes, n:int):
++  if len(cb) < 8 or not len(_wlo): return
++  w = np.frombuffer(cb, np.uint64, len(cb) // 8)
++  i = np.searchsorted(_wlo, w, side="right") - 1
++  ok = (i >= 0) & (w < _whi[np.maximum(i, 0)])
++  if ok.any():
++    for j in set(i[ok].tolist()):
++      key = _wkey[j]; dev_pend.add(key); dev_pend_idx[key] = n
++def _dev_find(dst:int, size:int):   # the watched range that covers [dst, dst + size), else None
++  for k, (lo, hi) in dev_watch.items():
++    if lo <= dst and dst + size <= hi: return k
++  return None
++def _dev_register(dst:int, size:int):
++  lo, hi = dst, dst + size
++  for k, (l2, h2) in list(dev_watch.items()):   # keep the ranges disjoint: a new one that overlaps merges (the ordered push that registers it has synchronized everything)
++    if l2 < hi and lo < h2:
++      lo, hi = min(lo, l2), max(hi, h2); dev_watch.pop(k); dev_pend.discard(k); dev_sem.pop(k, None)
++  dev_watch[lo] = (lo, hi)
++  _dev_rebuild()
+ def h2d(dst:int, src:int, size:int) -> int:
+   # the pipelined path (>= PIPE_MIN) reads the host buffer in place: the call is synchronous, a copy of 10 MB is 3 ms
++  if size and RELAX and ctx.ace.PIPE_MIN and size >= ctx.ace.PIPE_MIN:
++    k = _dev_find(dst, size) if dev_watch else None
++    if k is not None:
++      need = dev_sem.get(k, 0)
++      if k in dev_pend:   # the launches that name it go first; the ones queued after the last of them are submitted too and run during the push
++        idx = dev_pend_idx.get(k, len(ctx.pending))
++        if ctx.pending: _push_mapped()
++        if idx < len(ctx.pending):
++          rest = ctx.pending[idx:]; ctx.pending = ctx.pending[:idx]
++          ctx.flush(); need = ctx.sem_value
++          ctx.pending = rest
++          for j in [j for j in dev_pend if dev_pend_idx.get(j, 0) <= idx]: dev_sem[j] = need; dev_pend.discard(j)
++          for j in dev_pend: dev_pend_idx[j] = dev_pend_idx.get(j, idx) - idx
++          flush()   # the rest: mapped-region bookkeeping and the stamps of the ranges they name
++        else:
++          flush(); need = dev_sem.get(k, ctx.sem_value)
++      elif ctx.pending: flush()   # nothing here names the range: the queued launches still go now, so the GPU works while the rows come in
++      if _completed() < need: ctx._wait(need)
++      ctx.write_vram(dst, _mv(src, size), ordered=None)   # concurrently with whatever else runs
++      return 0
++    s = dev_seen.setdefault(dst, [0, 0]); s[0] += 1; s[1] = max(s[1], size)
++    if s[0] >= 3: _dev_register(dst, s[1])   # this push is still ordered
+   if size: flush(); ctx.write_vram(dst, _mv(src, size) if ctx.ace.PIPE_MIN and size >= ctx.ace.PIPE_MIN else bytes(_mv(src, size)))
+   return 0
+ def d2h(dst:int, src:int, size:int) -> int:
+@@ -84,6 +150,7 @@
+     refs = _refs(rec[1])
+     if refs and "wait_flag" in rec[2]: live_regions.update(refs)
+     if refs and MAPPED_SYNC: _order_host_writes(refs)
++    if dev_watch: _dev_refs(rec[1], len(ctx.pending) + 1)
+     ctx.pending.append(rec); touched.update(refs); pend_refs.update(refs)
+     if len(ctx.pending) >= AUTO_FLUSH: flush()   # keep the GPU fed while the host queues more
+ AUTO_FLUSH = int(os.getenv("TGCU_AUTO_FLUSH", "64"))
+@@ -284,7 +351,7 @@
+     return 0
+ def hs_push_go() -> int:
+     ss = _hs.pop("wr")
+-    ctx.ace.h2d_go([bytes(_mv(b + a, e - a)) for b, a, e in ss])
++    ctx.ace.h2d_go([_mv(b + a, e - a) for b, a, e in ss])   # views: h2d_go copies each into the wire buffer
+     return 0
+ def mapped_push(h:int, off:int, n:int) -> int: _push(h, off, n); return 0
+ def mapped_pull(h:int, off:int, n:int) -> int:
+@@ -444,6 +511,9 @@
+ def _submitted():
+   for h in pend_refs: ref_sem[h] = ctx.sem_value
+   pend_refs.clear()
++  if dev_pend:
++    for k in dev_pend: dev_sem[k] = ctx.sem_value
++    dev_pend.clear()
+ def query() -> int:
+   # 1 when all submitted work is done. As on CUDA, a completed query makes the GPU's writes to mapped memory visible:
+   # programs spin on mapped words and break out on a successful query (Strata's MTP drafter does).
+@@ -497,6 +567,7 @@
+   if execs[e]:
+     _push_mapped()
+     touched.update(exec_refs[e]); pend_refs.update(exec_refs[e])
++    if dev_watch: dev_pend.update(dev_watch)   # a graph names its buffers in its own records: every watched range is assumed read
+     ctx.graph_launch(execs[e])
+     _submitted()
+     if e in live_execs: live_sem[0] = ctx.sem_value

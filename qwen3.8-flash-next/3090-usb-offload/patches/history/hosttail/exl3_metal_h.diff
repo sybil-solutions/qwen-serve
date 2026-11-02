@@ -1,0 +1,11 @@
+--- metal/exl3_metal.h.orig	2026-10-12 02:32:14.267999000 -0400
++++ metal/exl3_metal.h	2026-10-12 02:32:27.487006682 -0400
+@@ -74,6 +74,8 @@
+ /* Tuning: "pf_chunk_rows" (default 4096), "pf_chunk_experts" (default 16). Returns 0 or -1 for an unknown key. */
+ int exl3m_set_param(exl3m_ctx *ctx, const char *key, int64_t value);
+ void exl3m_get_stats(exl3m_ctx *ctx, exl3m_stats *out);
++int64_t exl3m_alloc_bytes(exl3m_ctx *ctx);          /* MTLDevice.currentAllocatedSize */
++int64_t exl3m_recommended_bytes(exl3m_ctx *ctx);    /* MTLDevice.recommendedMaxWorkingSetSize */
+ 
+ #ifdef __cplusplus
+ }

@@ -1,0 +1,18 @@
+--- /tmp/gen_orig.cpp	2026-10-11 15:53:54.981632171 -0400
++++ $HOME/sessions/cdl/generate.cpp	2026-10-11 15:45:34.261381436 -0400
+@@ -5012,6 +5012,15 @@
+             routers[(size_t) l].resize((size_t) (g.n_expert * g.n_embd));
+             ok = cudaMemcpy(routers[(size_t) l].data(), w->data, (size_t) w->bytes, cudaMemcpyDeviceToHost) == cudaSuccess;
+         }
++        // the D2H copies above are lazy downloads (tgcudart.cpp: protected pages fetched over USB on first touch).  Resolve them HERE, on the
++        // engine thread: the look-ahead thread's first touch would run the USB fetch concurrently with a pre-armed handshake pull and
++        // corrupt it (bulk IN short read, 'async copy timeout' in lazy_fetch).
++        if (ok) {
++            volatile uint16_t touch = 0;
++            for (auto& r : routers)
++                for (size_t i = 0; i < r.size(); i += 4096) touch = (uint16_t) (touch ^ r[i]);
++            (void) touch;
++        }
+         const char* kv = std::getenv("STRATA_LOOKAHEAD_K");
+         if (ok && lookahead.start(std::move(routers), g.n_embd, g.n_expert, kv ? std::atoi(kv) : 10, srcp, err, fs_ahead || mac_warm_la)) {
+             drive.d.lookahead = &lookahead;

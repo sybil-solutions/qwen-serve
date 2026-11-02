@@ -1,0 +1,17 @@
+// What the CUDA driver normally links into cubins: device printf (vprintf) and assert (__assertfail).
+// printf output is dropped (no host buffer drains it over this link); a failed assert traps, as on CUDA.
+.version 8.0
+.target sm_86
+.address_size 64
+
+.visible .func (.param .b32 func_retval0) vprintf(.param .b64 fmt, .param .b64 args)
+{
+	st.param.b32 [func_retval0+0], 0;
+	ret;
+}
+
+.visible .func __assertfail(.param .b64 msg, .param .b64 file, .param .b32 line, .param .b64 fn, .param .b64 charsize)
+{
+	trap;
+	ret;
+}

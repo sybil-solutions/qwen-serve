@@ -1,0 +1,263 @@
+--- src/expert_source.cpp.orig	2026-10-11 14:27:33.604849000 -0400
++++ src/expert_source.cpp	2026-10-11 15:31:25.824309419 -0400
+@@ -33,6 +33,7 @@
+ #include <memory>
+ #include <mutex>
+ #include <thread>
++#include <functional>
+ #include <utility>
+ #include <vector>
+ 
+@@ -1315,8 +1316,215 @@
+     return ok ? dst : nullptr;
+ }
+ 
++#if defined(__APPLE__)
++namespace {
++// STRATA_MAC_PULL=1: before a layer's CPU experts run, the ones whose pages are not in the file cache are read whole (one
++// pread of the blob each, all of them in parallel on a few threads) so the kernels find them resident: the page faults of the
++// mapped read are 16 KiB random requests (measured ~0.45 GB/s on the mini's SSD, 4 ms per cold expert); whole-blob preads run at
++// the drive's sequential rate and keep many requests in flight.  The pages land in the same unified cache the mapping uses.
++struct MacPull {
++    std::mutex mu;
++    std::condition_variable cv, done_cv;
++    std::vector<std::thread> th;
++    const std::vector<std::pair<uint64_t, uint64_t>>* jobs = nullptr;
++    int fd = -1;
++    std::atomic<size_t> next{0}, completed{0};
++    size_t n = 0;
++    uint64_t gen = 0;
++    bool quit = false;
++    void drain() {
++        static thread_local std::vector<uint8_t> scratch;
++        for (;;) {
++            const size_t i = next.fetch_add(1);
++            if (i >= n) return;
++            const auto& j = (*jobs)[i];
++            if (scratch.size() < j.second) scratch.resize((size_t) j.second);
++            uint64_t got = 0;
++            while (got < j.second) {
++                const ssize_t r = ::pread(fd, scratch.data() + got, (size_t) (j.second - got), (off_t) (j.first + got));
++                if (r <= 0) break;
++                got += (uint64_t) r;
++            }
++            if (completed.fetch_add(1) + 1 == n) { std::lock_guard<std::mutex> lk(mu); done_cv.notify_all(); }
++        }
++    }
++    void start(int nt) {
++        for (int t = 0; t < nt; ++t)
++            th.emplace_back([this] {
++                uint64_t seen = 0;
++                for (;;) {
++                    {
++                        std::unique_lock<std::mutex> lk(mu);
++                        cv.wait(lk, [&] { return quit || gen != seen; });
++                        if (quit) return;
++                        seen = gen;
++                    }
++                    drain();
++                }
++            });
++    }
++    std::vector<std::pair<uint64_t, uint64_t>> own;
++    bool active = false;
++    void begin(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j) {   // start, do not wait (finish() joins)
++        finish();
++        if (j.empty()) return;
++        {
++            std::lock_guard<std::mutex> lk(mu);
++            own = j; jobs = &own; fd = fd_; n = own.size(); next.store(0); completed.store(0); ++gen; active = true;
++        }
++        cv.notify_all();
++    }
++    void finish() {
++        if (!active) return;
++        drain();
++        std::unique_lock<std::mutex> lk(mu);
++        done_cv.wait(lk, [&] { return completed.load() >= n; });
++        active = false;
++    }
++    void run(int fd_, const std::vector<std::pair<uint64_t, uint64_t>>& j) { begin(fd_, j); finish(); }
++};
++MacPull& mac_pull() {
++    static MacPull* p = [] { auto* q = new MacPull; int nt = 7; if (const char* e = std::getenv("STRATA_MAC_PULL_THREADS")) nt = std::max(1, std::atoi(e)); q->start(nt); return q; }();
++    return *p;
++}
++bool mac_pull_on() {
++    static const bool on = std::getenv("STRATA_MAC_PULL") != nullptr && std::atoi(std::getenv("STRATA_MAC_PULL")) != 0;
++    return on;
++}
++int mac_pull_fd(const std::string& path) {
++    static int fd = -1;
++    static std::mutex m;
++    std::lock_guard<std::mutex> lk(m);
++    if (fd < 0) fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
++    return fd;
++}
++// the router look-ahead's predicted blobs: read in the background (newest prediction first, the oldest dropped past 96) while the
++// current layer's handshake and the GPU run, so the next layer's pull finds them resident
++struct MacWarmQ {
++    std::mutex mu;
++    std::condition_variable cv;
++    std::vector<std::pair<uint64_t, uint64_t>> q;   // (file offset, bytes)
++    std::vector<std::thread> th;
++    std::atomic<int64_t> reads{0}, skipped{0};
++    void start(int fd, const uint8_t* base, int nt) {
++        for (int t = 0; t < nt; ++t)
++            th.emplace_back([this, fd, base] {
++                std::vector<uint8_t> scratch;
++                for (;;) {
++                    std::pair<uint64_t, uint64_t> j;
++                    {
++                        std::unique_lock<std::mutex> lk(mu);
++                        cv.wait(lk, [&] { return !q.empty(); });
++                        j = q.back(); q.pop_back();
++                    }
++                    const uintptr_t pg = 16384, p = (uintptr_t) base + j.first, a = p & ~(pg - 1);
++                    const size_t len = (size_t) (p + j.second - a), npg = (len + pg - 1) / pg;
++                    char vec[512];
++                    if (npg <= sizeof vec && mincore((void*) a, len, vec) == 0) {
++                        size_t miss = 0;
++                        for (size_t i = 0; i < npg; ++i) miss += (vec[i] & 1) ? 0 : 1;
++                        if (miss == 0) { skipped.fetch_add(1); continue; }
++                    }
++                    if (scratch.size() < j.second) scratch.resize((size_t) j.second);
++                    uint64_t got = 0;
++                    while (got < j.second) {
++                        const ssize_t r = ::pread(fd, scratch.data() + got, (size_t) (j.second - got), (off_t) (j.first + got));
++                        if (r <= 0) break;
++                        got += (uint64_t) r;
++                    }
++                    reads.fetch_add(1);
++                }
++            });
++    }
++    void push(uint64_t off, uint64_t bytes) {
++        {
++            std::lock_guard<std::mutex> lk(mu);
++            if (q.size() >= 96) q.erase(q.begin());
++            q.emplace_back(off, bytes);
++        }
++        cv.notify_one();
++    }
++};
++MacWarmQ* mac_warm_q(int fd, const uint8_t* base) {
++    static MacWarmQ* q = [&] {
++        auto* w = new MacWarmQ;
++        int nt = 2; if (const char* e = std::getenv("STRATA_MAC_WARM_THREADS")) nt = std::max(1, std::atoi(e));
++        w->start(fd, base, nt);
++        return w;
++    }();
++    return q;
++}
++}  // namespace
++#endif
++
++#if defined(__APPLE__)
++// verify.cpp calls strata_mac_pull_begin the moment a ring's ids are known (before it queues the CE push): the cold experts' reads
++// start on the pull threads and overlap that USB work; FileExpertSource::prefetch joins them (and reads whatever is still missing)
++static std::function<void(int64_t, const int64_t*, int64_t)> g_pull_begin;
++static std::atomic<bool> g_pull_begin_set{false};
++extern "C" void strata_mac_pull_begin(int64_t layer, const int64_t* experts, int64_t n) {
++    if (g_pull_begin_set.load(std::memory_order_acquire)) g_pull_begin(layer, experts, n);
++}
++#else
++extern "C" void strata_mac_pull_begin(int64_t, const int64_t*, int64_t) {}
++#endif
++
+ void FileExpertSource::prefetch(int64_t layer, const int64_t* experts, int64_t n) {
+-    if (!staged() || n <= 0 || layer < 0 || layer >= n_layers_) return;
++    if (!staged() || n <= 0 || layer < 0 || layer >= n_layers_) {
++#if defined(__APPLE__)
++        if (mac_pull_on() && n > 0 && layer >= 0 && layer < n_layers_ && role_ptr_.empty() && !io_pf_ && direct_.empty() && base_ != nullptr && !paths_.empty()) {
++            const int pull_fd = mac_pull_fd(paths_.front());
++            if (pull_fd >= 0) {
++                // the cold experts of (layer, experts) whose pages are not all cached, as whole-blob chunk reads
++                auto collect = [this](int64_t lay, const int64_t* ex, int64_t cnt, std::vector<std::pair<uint64_t, uint64_t>>& jobs) {
++                    jobs.clear();
++                    const uintptr_t pg = 16384;
++                    for (int64_t i = 0; i < cnt; ++i) {
++                        const int64_t e = ex[i];
++                        if (e < 0 || e >= n_expert_ || lay < 0 || lay >= n_layers_) continue;
++                        const size_t index = (size_t) lay * (size_t) n_expert_ + (size_t) e;
++                        if (complement_ready_ && resident_blob(index) != nullptr) continue;
++                        if (!override_.empty() && override_[index] != nullptr) continue;
++                        const uint8_t* p = mapped_blob(lay, e);
++                        if (p == nullptr) continue;
++                        const uint64_t bytes = layer_blob_bytes_[(size_t) lay];
++                        const uintptr_t a = (uintptr_t) p & ~(pg - 1);
++                        const size_t len = (size_t) ((uintptr_t) p + bytes - a);
++                        char vec[512];
++                        const size_t npg = (len + pg - 1) / pg;
++                        if (npg > sizeof vec) continue;
++                        if (mincore((void*) a, len, vec) == 0) {
++                            size_t miss = 0;
++                            for (size_t q = 0; q < npg; ++q) miss += (vec[q] & 1) ? 0 : 1;
++                            if (miss == 0) continue;
++                        }
++                        // chunks, so even one cold expert keeps every thread's request in flight (STRATA_MAC_PULL_CHUNK_KB; default 4096 = whole blob: 256 KB chunks measured slower, H8 8.7/12.1/8.3 vs 9.3/12.5/8.5)
++                        static const uint64_t chunk = [] { const char* ev = std::getenv("STRATA_MAC_PULL_CHUNK_KB"); return (uint64_t) std::max(16, ev ? std::atoi(ev) : 4096) * 1024; }();
++                        const uint64_t off0 = (uint64_t) (p - base_);
++                        for (uint64_t o = 0; o < bytes; o += chunk) jobs.emplace_back(off0 + o, std::min<uint64_t>(chunk, bytes - o));
++                    }
++                };
++                if (!g_pull_begin_set.load(std::memory_order_acquire)) {
++                    static std::mutex m;
++                    std::lock_guard<std::mutex> lk(m);
++                    if (!g_pull_begin_set.load()) {
++                        g_pull_begin = [collect, pull_fd](int64_t lay, const int64_t* ex, int64_t cnt) {
++                            static thread_local std::vector<std::pair<uint64_t, uint64_t>> jobs;
++                            collect(lay, ex, cnt, jobs);
++                            if (!jobs.empty()) mac_pull().begin(pull_fd, jobs);
++                        };
++                        g_pull_begin_set.store(true, std::memory_order_release);
++                    }
++                }
++                mac_pull().finish();   // the early start (strata_mac_pull_begin) of this layer, if any
++                static thread_local std::vector<std::pair<uint64_t, uint64_t>> jobs;
++                collect(layer, experts, n, jobs);
++                if (!jobs.empty()) mac_pull().run(pull_fd, jobs);
++            }
++        }
++#endif
++        return;
++    }
+     if (io_fill_ && io_pf_ && direct_.empty()) {   // hand the layer's uncached blobs to the workers and go on: the kernels
+         for (int64_t i = 0; i < n; ++i) {          // that reach one before it lands wait on its pages, the rest compute
+             const int64_t e = experts[i];
+@@ -1896,6 +2104,10 @@
+         if (mac_warm) {   // macOS: start the page-in of the predicted blob now
+             if (const uint8_t* p = mapped_blob(layer, e)) {
+                 const uint64_t bytes = layer_blob_bytes_[(size_t) layer];
++                if (mac_pull_on() && !paths_.empty()) {
++                    const int pfd = mac_pull_fd(paths_.front());
++                    if (pfd >= 0) { mac_warm_q(pfd, base_)->push((uint64_t) (p - base_), bytes); continue; }
++                }
+                 if (mac_warm_fd < 0 && !paths_.empty()) mac_warm_fd = ::open(paths_.front().c_str(), O_RDONLY | O_CLOEXEC);
+                 if (mac_warm_fd >= 0) {
+                     struct radvisory ra;
+@@ -3352,6 +3564,7 @@
+                 miss.push_back(ids[i]);
+         d.src->prefetch(d.layers, miss.data(), (int64_t) miss.size());
+     }
++    const auto c2b = std::chrono::steady_clock::now();
+     int njobs = 0;
+     for (int64_t t = 0; t < n_tok; ++t)
+         for (int64_t j = 0; j < k; ++j) {
+@@ -3436,6 +3649,16 @@
+     d.ms_actq += ms(c1, c2);
+     d.ms_jobs += ms(c2, c3);
+     d.ms_run += ms(c3, c4);
++    {
++        static const bool pstats = std::getenv("STRATA_POOL_STATS") != nullptr;
++        static double a_plan = 0, a_actq = 0, a_pref = 0, a_jobs = 0, a_run = 0, a_n = 0; static int64_t calls = 0;
++        if (pstats) {
++            a_plan += ms(c0, c1); a_actq += ms(c1, c2); a_pref += ms(c2, c2b); a_jobs += ms(c2b, c3); a_run += ms(c3, c4); a_n += njobs;
++            if (++calls % 1000 == 0)
++                std::fprintf(stderr, "strata dispatch stats (%lld calls, %.2f cold experts/call): begin+plan %.3f, actq %.3f, prefetch %.3f, jobs(blob) %.3f, pool run %.3f ms/call\n",
++                             (long long) calls, a_n / (double) calls, a_plan / (double) calls, a_actq / (double) calls, a_pref / (double) calls, a_jobs / (double) calls, a_run / (double) calls);
++        }
++    }
+     for (int64_t i = 0; i < n_tok * k; ++i) {
+         const int64_t e = ids[i];
+         if (e >= 0 && e < d.n_expert) d.job_of[(size_t) e] = -1;

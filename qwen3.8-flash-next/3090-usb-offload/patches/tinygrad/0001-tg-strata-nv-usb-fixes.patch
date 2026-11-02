@@ -1,0 +1,86 @@
+diff --git a/tinygrad/device.py b/tinygrad/device.py
+index 704291300..df3ef27e2 100644
+--- a/tinygrad/device.py
++++ b/tinygrad/device.py
+@@ -335,7 +335,11 @@ class Compiler:
+     return subprocess.Popen(argv.split() + [str(a) for a in args], stdout=subprocess.PIPE, stdin=subprocess.PIPE, bufsize=0)
+   def compile_server(self, src:str, proc:subprocess.Popen) -> bytes:
+     unwrap(proc.stdin).write(struct.pack("I", len(src.encode())) + src.encode())
+-    if (lib:=unwrap(proc.stdout).read(struct.unpack("I", unwrap(proc.stdout).read(4))[0])): return lib
++    def read_exact(n:int) -> bytes: # the pipe is unbuffered: a large cubin arrives in several short reads
++      buf = b''
++      while len(buf) < n and (chunk:=unwrap(proc.stdout).read(n - len(buf))): buf += chunk
++      return buf
++    if (lib:=read_exact(struct.unpack("I", read_exact(4))[0])): return lib
+     raise CompileError("Compilation Error")
+ 
+ 
+diff --git a/tinygrad/runtime/ops_nv.py b/tinygrad/runtime/ops_nv.py
+index 8c0b6d940..32b043f91 100644
+--- a/tinygrad/runtime/ops_nv.py
++++ b/tinygrad/runtime/ops_nv.py
+@@ -235,7 +235,8 @@ class NVProgramData:
+   def __init__(self, dev:NVDevice, obj:TinyELF):
+     name, signature, mock = obj.name, obj.signature, isinstance(dev.iface, MOCKIface)
+     self.constbufs: dict[int, tuple[int, int]] = {0: (0, 0x160)} # dict[constbuf index, tuple[offset in the image, size]]
+-    self.relocs: list[tuple[int, int, DType, int]] = [] # (byte offset in the image, symbol offset, width, shift) of the program's address
++    # (byte offset in the image, symbol offset, width, shift, field mask, bits kept from the image) of the program's address
++    self.relocs: list[tuple[int, int, DType, int, int|None, int]] = []
+     self.prog_off, self.cbuf_0, sections, relocs = 0, [], list[Any](), list[Any]()
+     image:bytes = obj.lib
+ 
+@@ -262,10 +263,14 @@ class NVProgramData:
+             elif sh.name == ".nv.info" and param == 0x2f: regs = struct.unpack_from("II", data)[1] # EIATTR_REGCOUNT
+ 
+       # These reloc types are CUDA-specific: they all want the program's own address, which is only known once the linear links.
+-      for apply_image_offset, rel_sym_offset, typ, _ in relocs:
+-        if typ == 2: self.relocs.append((apply_image_offset, rel_sym_offset, dtypes.uint64, 0)) # R_CUDA_64
+-        elif typ == 0x38: self.relocs.append((apply_image_offset + 4, rel_sym_offset, dtypes.uint32, 0))
+-        elif typ == 0x39: self.relocs.append((apply_image_offset + 4, rel_sym_offset, dtypes.uint32, 32))
++      for apply_image_offset, rel_sym_offset, typ, addend in relocs:
++        rel_sym_offset += addend # RELA: CALL.ABS return addresses are the function plus the offset after the call
++        if typ == 2: self.relocs.append((apply_image_offset, rel_sym_offset, dtypes.uint64, 0, None, 0)) # R_CUDA_64
++        elif typ == 0x38: self.relocs.append((apply_image_offset + 4, rel_sym_offset, dtypes.uint32, 0, None, 0))
++        elif typ == 0x39: self.relocs.append((apply_image_offset + 4, rel_sym_offset, dtypes.uint32, 32, None, 0))
++        elif typ == 0x3a: # R_CUDA_ABS47_34 (CALL.ABS): address >> 2 in instruction bits [34, 81), so address bits [2, 49) at bit 32
++          for off, sh, mask in ((apply_image_offset + 4, 0, 0xfffffffc), (apply_image_offset + 8, 32, 0x1ffff)):
++            self.relocs.append((off, rel_sym_offset, dtypes.uint32, sh, mask, struct.unpack_from("<I", image, off)[0] & ~mask))
+         else: raise RuntimeError(f"unknown NV reloc {typ}")
+ 
+       # Minimum cbuf_0 size for driver params: Blackwell needs index 223 (224 entries), older GPUs need index 11 (12 entries)
+@@ -317,7 +322,8 @@ class NVProgramData:
+ def nv_build_program(dev:NVDevice, prg:UOp, devs:tuple[str, ...]) -> tuple[NVProgramData, UOp]:
+   data = NVProgramData(dev, prg.to_elf())
+   buf = make_program(prg, len(data.image), devs[0])
+-  rows = [(off, ((buf.getaddr(devs) + sym) >> sh).ccast(dt)) for off, sym, dt, sh in data.relocs]
++  rows = [(off, v if mask is None else (v & mask) | keep) for off, sym, dt, sh, mask, keep in data.relocs
++          for v in [((buf.getaddr(devs) + sym) >> sh).ccast(dt)]]
+   return data, patch(buf, rows, data.image)
+ 
+ class NVAllocator(Allocator['NVDevice']):
+diff --git a/tinygrad/runtime/support/nv/ip.py b/tinygrad/runtime/support/nv/ip.py
+index d17815165..ac7375460 100644
+--- a/tinygrad/runtime/support/nv/ip.py
++++ b/tinygrad/runtime/support/nv/ip.py
+@@ -108,7 +108,20 @@ class NV_FLCN(NV_IP):
+     self.prep_booter()
+ 
+   def prep_ucode(self):
+-    vbios_bytes, vbios_off = memoryview(bytes(array.array('I', self.nvdev.mmio[0x00300000//4:(0x00300000+0x100000)//4]))), 0
++    # the PROM window can return garbage while a previous session's GSP is still winding down (a process killed with work
++    # stuck on the GPU): read it in 64 KB pieces and keep a piece only once two consecutive reads agree
++    def prom(off:int, n:int) -> bytes: return bytes(array.array('I', self.nvdev.mmio[(0x00300000+off)//4:(0x00300000+off+n)//4]))
++    pieces = []
++    for off in range(0, 0x100000, 0x10000):
++      prev = prom(off, 0x10000)
++      for _ in range(50):
++        cur = prom(off, 0x10000)
++        if cur == prev: break
++        prev = cur
++        time.sleep(0.05)
++      else: raise RuntimeError(f"VBIOS read at {off:#x} never stabilized")
++      pieces.append(cur)
++    vbios_bytes, vbios_off = memoryview(b"".join(pieces)), 0
+     while True:
+       pci_blck = vbios_bytes[vbios_off + nv.OFFSETOF_PCI_EXP_ROM_PCI_DATA_STRUCT_PTR:].cast('H')[0]
+       imglen = vbios_bytes[vbios_off + pci_blck + nv.OFFSETOF_PCI_DATA_STRUCT_IMAGE_LEN:].cast('H')[0] * nv.PCI_ROM_IMAGE_BLOCK_SIZE

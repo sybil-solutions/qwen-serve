@@ -1,0 +1,77 @@
+== R3b_hs 2026-10-11T15:00:39Z cfg=$HOME/shim/strata-exl3p256.json
+STRATA_DECODE_TIMING=1
+STRATA_EXL3_KEEP_MASK=$HOME/exl3/keep_mask_240.bin
+STRATA_EXL3_SLIM=1
+STRATA_HS_TRACE=1
+STRATA_VERIFY_LAYER_AR=0
+[strata] 2026-10-11 08:00:41 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_p256 --native $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf --expert-profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --no-prefill-borrow
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata serve: 1277 MiB of VRAM free with everything loaded
+READY
+ready after 193 s
+{"i": 0, "wall_s": 42.7, "prompt_n": 29, "prompt_ms": 8429.9, "predicted_n": 100, "predicted_ms": 34212.3, "tok_s": 2.9, "drafts": "72/81", "head": "Here is a Python function that checks if a number is prime, followed by a brief explanatio"}
+{"i": 1, "wall_s": 54.4, "prompt_n": 35, "prompt_ms": 6614.1, "predicted_n": 100, "predicted_ms": 47806.5, "tok_s": 2.1, "drafts": "47/89", "head": "A mixture-of-experts (MoE) model begins by generating a dense vector representation for ea"}
+{"i": 2, "wall_s": 60.2, "prompt_n": 29, "prompt_ms": 5153.5, "predicted_n": 100, "predicted_ms": 55005.7, "tok_s": 1.8, "drafts": "42/75", "head": "The rain lashed against the shore, slick and cold, but the sea remained stubbornly dry. El"}
+-- engine log
+strata generate: profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin: 12288 ranked pairs, built for 12288 slots
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata generate: expert cache 9296 slots, 16.12 GiB of VRAM; policy is
+strata generate: pre-filled 9296 of 9296 slots from the profile in 134.8 s (128 MB/s); slot 0 verified
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 1277 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (1277 MiB of VRAM free)
+strata exl3: keep mask $HOME/exl3/keep_mask_240.bin loaded (quality probe)
+strata verify: capturing the 4-token window (1223 MiB of VRAM free)
+strata hs: per doorbell layer (ms): ids+w 0.466, x pull 1.816, pull+pool(cum) 14.351, yred push 16.644, flag push 0.541, host total 32.037, wait-for-ring 1.008 (n=192)
+strata verify: capturing the 1-token window (1107 MiB of VRAM free)
+strata verify: capturing the 2-token window (1105 MiB of VRAM free)
+strata hs: per doorbell layer (ms): ids+w 0.457, x pull 1.635, pull+pool(cum) 8.953, yred push 14.177, flag push 0.449, host total 24.071, wait-for-ring 0.896 (n=384)
+strata verify: capturing the 3-token window (1103 MiB of VRAM free)
+strata hs: per doorbell layer (ms): ids+w 0.416, x pull 1.545, pull+pool(cum) 6.983, yred push 15.290, flag push 0.472, host total 23.195, wait-for-ring 0.849 (n=576)
+strata hs: per doorbell layer (ms): ids+w 0.409, x pull 1.514, pull+pool(cum) 6.589, yred push 15.708, flag push 0.463, host total 23.204, wait-for-ring 0.891 (n=768)
+strata hs: per doorbell layer (ms): ids+w 0.394, x pull 1.490, pull+pool(cum) 5.970, yred push 16.253, flag push 0.436, host total 23.087, wait-for-ring 0.861 (n=960)
+strata hs: per doorbell layer (ms): ids+w 0.384, x pull 1.480, pull+pool(cum) 5.591, yred push 16.499, flag push 0.406, host total 22.914, wait-for-ring 0.858 (n=1152)
+strata hs: per doorbell layer (ms): ids+w 0.382, x pull 1.498, pull+pool(cum) 5.408, yred push 16.699, flag push 0.438, host total 22.962, wait-for-ring 0.871 (n=1344)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.490, pull+pool(cum) 5.137, yred push 16.911, flag push 0.457, host total 22.915, wait-for-ring 0.864 (n=1536)
+strata hs: per doorbell layer (ms): ids+w 0.383, x pull 1.494, pull+pool(cum) 4.898, yred push 17.034, flag push 0.477, host total 22.825, wait-for-ring 0.860 (n=1728)
+strata decode timing: 31 windows, avg T 3.61, 3.23 tokens/window, 1103.62 ms/window = verify 1092.58 (GPU-reach wait 40.01 + per-layer host 1044.75 [plan 0.06 actq 0.00 jobs 0.02 CPU 102.35] + stage 1.52) + commit/emit 0.99 + draft 10.05; per layer-window: CPU experts 4.11 (6.87 entries), VRAM hits 26.39, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 8430 ms (3.4 tok/s), 100 generated in 34212 ms (2.9 tok/s), drafts accepted 72 of 81, 1 checkpoints
+strata serve: decode expert cache hit rate: 79.3% (39262 hits / 49490 lookups)
+strata hs: per doorbell layer (ms): ids+w 0.398, x pull 1.522, pull+pool(cum) 5.091, yred push 16.912, flag push 0.484, host total 22.919, wait-for-ring 0.894 (n=1920)
+strata hs: per doorbell layer (ms): ids+w 0.394, x pull 1.516, pull+pool(cum) 4.854, yred push 16.431, flag push 0.484, host total 22.197, wait-for-ring 0.879 (n=2112)
+strata hs: per doorbell layer (ms): ids+w 0.389, x pull 1.489, pull+pool(cum) 4.642, yred push 16.328, flag push 0.483, host total 21.876, wait-for-ring 0.866 (n=2304)
+strata hs: per doorbell layer (ms): ids+w 0.385, x pull 1.468, pull+pool(cum) 4.433, yred push 16.337, flag push 0.478, host total 21.667, wait-for-ring 0.850 (n=2496)
+strata hs: per doorbell layer (ms): ids+w 0.381, x pull 1.438, pull+pool(cum) 4.224, yred push 16.169, flag push 0.463, host total 21.270, wait-for-ring 0.824 (n=2688)
+strata hs: per doorbell layer (ms): ids+w 0.382, x pull 1.429, pull+pool(cum) 4.077, yred push 16.209, flag push 0.457, host total 21.158, wait-for-ring 0.821 (n=2880)
+strata hs: per doorbell layer (ms): ids+w 0.386, x pull 1.415, pull+pool(cum) 3.939, yred push 16.122, flag push 0.468, host total 20.949, wait-for-ring 0.828 (n=3072)
+strata hs: per doorbell layer (ms): ids+w 0.385, x pull 1.404, pull+pool(cum) 3.814, yred push 16.058, flag push 0.479, host total 20.770, wait-for-ring 0.815 (n=3264)
+strata hs: per doorbell layer (ms): ids+w 0.383, x pull 1.395, pull+pool(cum) 3.699, yred push 16.080, flag push 0.471, host total 20.667, wait-for-ring 0.802 (n=3456)
+strata hs: per doorbell layer (ms): ids+w 0.381, x pull 1.383, pull+pool(cum) 3.590, yred push 16.001, flag push 0.465, host total 20.471, wait-for-ring 0.783 (n=3648)
+strata hs: per doorbell layer (ms): ids+w 0.378, x pull 1.371, pull+pool(cum) 3.497, yred push 15.923, flag push 0.457, host total 20.290, wait-for-ring 0.772 (n=3840)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.367, pull+pool(cum) 3.422, yred push 15.967, flag push 0.459, host total 20.257, wait-for-ring 0.765 (n=4032)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.361, pull+pool(cum) 3.344, yred push 15.960, flag push 0.455, host total 20.168, wait-for-ring 0.757 (n=4224)
+strata hs: per doorbell layer (ms): ids+w 0.374, x pull 1.349, pull+pool(cum) 3.264, yred push 15.911, flag push 0.447, host total 20.029, wait-for-ring 0.750 (n=4416)
+strata decode timing: 53 windows, avg T 2.68, 1.89 tokens/window, 902.01 ms/window = verify 892.87 (GPU-reach wait 30.33 + per-layer host 858.82 [plan 0.04 actq 0.00 jobs 0.01 CPU 28.52] + stage 1.50) + commit/emit 0.98 + draft 8.16; per layer-window: CPU experts 2.07 (3.17 entries), VRAM hits 18.92, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 6614 ms (5.3 tok/s), 100 generated in 47807 ms (2.1 tok/s), drafts accepted 47 of 89, 1 checkpoints
+strata serve: decode expert cache hit rate: 85.7% (48142 hits / 56200 lookups)
+strata hs: per doorbell layer (ms): ids+w 0.373, x pull 1.348, pull+pool(cum) 3.211, yred push 15.946, flag push 0.443, host total 20.005, wait-for-ring 0.747 (n=4608)
+strata hs: per doorbell layer (ms): ids+w 0.374, x pull 1.363, pull+pool(cum) 3.278, yred push 15.860, flag push 0.443, host total 19.988, wait-for-ring 0.756 (n=4800)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.364, pull+pool(cum) 3.243, yred push 15.430, flag push 0.438, host total 19.520, wait-for-ring 0.748 (n=4992)
+strata hs: per doorbell layer (ms): ids+w 0.378, x pull 1.361, pull+pool(cum) 3.205, yred push 15.455, flag push 0.436, host total 19.506, wait-for-ring 0.740 (n=5184)
+strata hs: per doorbell layer (ms): ids+w 0.378, x pull 1.354, pull+pool(cum) 3.153, yred push 15.452, flag push 0.429, host total 19.445, wait-for-ring 0.733 (n=5376)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.355, pull+pool(cum) 3.122, yred push 15.510, flag push 0.430, host total 19.471, wait-for-ring 0.729 (n=5568)
+strata hs: per doorbell layer (ms): ids+w 0.378, x pull 1.356, pull+pool(cum) 3.088, yred push 15.581, flag push 0.426, host total 19.506, wait-for-ring 0.726 (n=5760)
+strata hs: per doorbell layer (ms): ids+w 0.381, x pull 1.353, pull+pool(cum) 3.050, yred push 15.613, flag push 0.423, host total 19.500, wait-for-ring 0.719 (n=5952)
+strata hs: per doorbell layer (ms): ids+w 0.380, x pull 1.353, pull+pool(cum) 3.020, yred push 15.613, flag push 0.423, host total 19.470, wait-for-ring 0.719 (n=6144)
+strata hs: per doorbell layer (ms): ids+w 0.381, x pull 1.351, pull+pool(cum) 2.991, yred push 15.622, flag push 0.426, host total 19.453, wait-for-ring 0.717 (n=6336)
+strata hs: per doorbell layer (ms): ids+w 0.379, x pull 1.350, pull+pool(cum) 2.964, yred push 15.658, flag push 0.424, host total 19.459, wait-for-ring 0.717 (n=6528)
+strata hs: per doorbell layer (ms): ids+w 0.379, x pull 1.347, pull+pool(cum) 2.936, yred push 15.707, flag push 0.420, host total 19.475, wait-for-ring 0.715 (n=6720)
+strata hs: per doorbell layer (ms): ids+w 0.377, x pull 1.345, pull+pool(cum) 2.904, yred push 15.729, flag push 0.423, host total 19.466, wait-for-ring 0.713 (n=6912)
+strata hs: per doorbell layer (ms): ids+w 0.377, x pull 1.340, pull+pool(cum) 2.874, yred push 15.733, flag push 0.421, host total 19.437, wait-for-ring 0.711 (n=7104)
+strata hs: per doorbell layer (ms): ids+w 0.376, x pull 1.335, pull+pool(cum) 2.843, yred push 15.662, flag push 0.416, host total 19.330, wait-for-ring 0.705 (n=7296)
+strata hs: per doorbell layer (ms): ids+w 0.375, x pull 1.331, pull+pool(cum) 2.814, yred push 15.552, flag push 0.411, host total 19.186, wait-for-ring 0.701 (n=7488)
+strata hs: per doorbell layer (ms): ids+w 0.375, x pull 1.330, pull+pool(cum) 2.793, yred push 15.588, flag push 0.408, host total 19.197, wait-for-ring 0.697 (n=7680)
+strata decode timing: 61 windows, avg T 2.23, 1.64 tokens/window, 901.73 ms/window = verify 893.41 (GPU-reach wait 28.81 + per-layer host 860.94 [plan 0.04 actq 0.00 jobs 0.01 CPU 34.59] + stage 1.58) + commit/emit 0.71 + draft 7.61; per layer-window: CPU experts 3.24 (4.82 entries), VRAM hits 14.15, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 5153 ms (5.6 tok/s), 100 generated in 55006 ms (1.8 tok/s), drafts accepted 42 of 75, 1 checkpoints
+strata serve: decode expert cache hit rate: 74.6% (41445 hits / 55560 lookups)
+== done 2026-10-11T15:06:30Z

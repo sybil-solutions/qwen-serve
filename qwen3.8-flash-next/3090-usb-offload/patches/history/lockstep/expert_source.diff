@@ -1,0 +1,185 @@
+--- strata/src/core/expert_source.cpp	2026-10-11 15:40:07
++++ strata-lockstep/src/core/expert_source.cpp	2026-10-11 16:50:11
+@@ -1521,7 +1521,8 @@
+     M.rows = (int (*)(void*, const float*, int, int, const int32_t*, const int32_t*, const float*, const void* const*, float*)) dlsym(M.lib, "exl3m_moe_rows");
+     M.lasterr = (const char* (*)()) dlsym(M.lib, "exl3m_last_error");
+     if (!create || !M.reg || !M.rows || !M.lasterr) { std::fprintf(stderr, "strata exl3-metal: missing symbols in %s\n", path.c_str()); return false; }
+-    M.ctx = create(0, 2);
++    // STRATA_EXL3_METAL_JOBS (default 2): the context's job slots = Metal jobs in flight (the lockstep prompt lane keeps lag + 1 of them; prefill.cpp pf_jobs reads the same variable)
++    M.ctx = create(0, std::max(2, std::min(8, std::getenv("STRATA_EXL3_METAL_JOBS") ? std::atoi(std::getenv("STRATA_EXL3_METAL_JOBS")) : 2)));
+     if (M.ctx == nullptr) { std::fprintf(stderr, "strata exl3-metal: exl3m_create failed: %s\n", M.lasterr()); return false; }
+     if (const char* ev = std::getenv("STRATA_EXL3_METAL_SLOTS")) M.nslots = std::max(64, std::min(4096, std::atoi(ev)));
+     M.stamp.assign((size_t) M.nslots, 0u);
+@@ -1555,6 +1556,12 @@
+ // streaming over the USB link.  Blobs: the locked RAM tier is read in place (registered NoCopy); everything else is pread whole (parallel threads) into
+ // two sets of registered, locked slots that alternate by layer, so the reads of layer l+1 overlap layer l's link hand-off and Metal call.  The reads run
+ // through FileExpertSource::prefetch (PfMac::mode) because only that class can see the file mapping and the RAM tier.
++// STRATA_PF_SETS (default 2, at most 4): the number of slot sets; layer l reads into set l % nsets.  A lockstep group (STRATA_PF_GROUP) with Mac jobs in flight
++// frees a layer's set later than the plain lane does, so a third set keeps the SSD reading ahead (each set is per_set x 1.86 MB of locked RAM, per prompt).
++inline int pf_nsets() {
++    static const int v = [] { const char* e = std::getenv("STRATA_PF_SETS"); return std::max(2, std::min(4, e ? std::atoi(e) : 2)); }();
++    return v;
++}
+ struct PfReader {   // a FIFO of whole-blob reads shared by the worker threads; begin() queues a set's reads, finish(set) joins them (the caller helps)
+     struct Job { uint64_t off, len; uint8_t* dst; int set; };
+     std::mutex mu;
+@@ -1562,7 +1569,7 @@
+     std::vector<std::thread> th;
+     std::deque<Job> q;
+     int fd = -1;
+-    int pending[2] = {0, 0};
++    int pending[4] = {0, 0, 0, 0};
+     std::atomic<int64_t> short_reads{0};
+     bool quit = false;
+     void run1(const Job& j) {
+@@ -1609,9 +1616,9 @@
+         done_cv.wait(lk, [&] { return pending[set] == 0; });
+     }
+     static double now_ms() { return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+-    double t_q[2] = {0, 0}, t_done[2] = {0, 0};
+-    uint64_t bytes[2] = {0, 0};
+-    int njobs[2] = {0, 0};
++    double t_q[4] = {0, 0, 0, 0}, t_done[4] = {0, 0, 0, 0};
++    uint64_t bytes[4] = {0, 0, 0, 0};
++    int njobs[4] = {0, 0, 0, 0};
+ };
+ struct PfMac {
+     bool inited = false;
+@@ -1621,8 +1628,8 @@
+     int64_t host_layers = 0;
+     uint8_t* slots = nullptr;
+     size_t stride = 0;
+-    int per_set = 0, used[2] = {0, 0}, tag[2] = {-1, -1};
+-    std::vector<int16_t> slot_of[2];     // expert -> slot within the set (-1: none)
++    int per_set = 0, used[4] = {0, 0, 0, 0}, tag[4] = {-1, -1, -1, -1};
++    std::vector<int16_t> slot_of[4];     // expert -> slot within the set (-1: none)
+     const void* ptrs[512] = {};
+     bool bad = false;
+     int fd = -1;
+@@ -1630,6 +1637,8 @@
+     int64_t ondemand = 0, tier_hits = 0, nreads = 0, warned = 0;
+     int (*pfill)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*) = nullptr;
+     int (*unreg)(void*, const void*) = nullptr;
++    int (*psub)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*, void**) = nullptr;
++    int (*pwait)(void*, void*) = nullptr;
+ };
+ PfMac& pfm() { static PfMac p; return p; }
+ }  // namespace
+@@ -1642,6 +1651,8 @@
+     if (!ml_init(M)) return -1;
+     P.pfill = (int (*)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*)) dlsym(M.lib, "exl3m_moe_prefill");
+     P.unreg = (int (*)(void*, const void*)) dlsym(M.lib, "exl3m_unregister");
++    P.psub = (int (*)(void*, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, const void* const*, float*, void**)) dlsym(M.lib, "exl3m_moe_prefill_submit");
++    P.pwait = (int (*)(void*, void*)) dlsym(M.lib, "exl3m_wait");
+     if (P.pfill == nullptr || P.unreg == nullptr) { std::fprintf(stderr, "strata pf-mac: exl3m_moe_prefill / exl3m_unregister missing in the Metal lib\n"); return -2; }
+     P.host_res = host_res; P.host_layers = host_layers; P.mode = 3;
+     static_cast<ExpertSource*>(srcv)->prefetch(0, (const int64_t*) nullptr, 0);
+@@ -1659,13 +1670,13 @@
+ extern "C" void strata_pf_mac_release() {
+     PfMac& P = pfm();
+     if (P.slots == nullptr) return;
+-    P.rd.finish(0); P.rd.finish(1);
++    for (int s = 0; s < pf_nsets(); ++s) P.rd.finish(s);
+     P.unreg(ml().ctx, P.slots);
+-    const size_t bytes = (size_t) 2 * (size_t) P.per_set * P.stride;
++    const size_t bytes = (size_t) pf_nsets() * (size_t) P.per_set * P.stride;
+     munlock(P.slots, bytes);
+     munmap(P.slots, bytes);
+     P.slots = nullptr;
+-    P.tag[0] = P.tag[1] = -1;
++    for (int s = 0; s < 4; ++s) P.tag[s] = -1;
+ }
+ // the reads of every cold expert of `layer` (n ids) into the set's slots, started now and joined by the compute call
+ extern "C" int strata_pf_mac_prefetch(void* srcv, int layer, int set, const int32_t* experts, int n) {
+@@ -1673,7 +1684,7 @@
+     if (P.slots == nullptr || n <= 0) return 0;
+     static thread_local std::vector<int64_t> e64;
+     e64.assign(experts, experts + n);
+-    P.mode = 1; P.set = set;
++    P.mode = 1; P.set = layer % pf_nsets();   // (the caller's set is only a hint: layer % nsets)
+     static_cast<ExpertSource*>(srcv)->prefetch(layer, e64.data(), (int64_t) e64.size());
+     P.mode = 0;
+     return P.bad ? -1 : 0;
+@@ -1687,7 +1698,7 @@
+     static thread_local std::vector<int64_t> e64;
+     e64.assign(experts, experts + nd);
+     const auto t0 = std::chrono::steady_clock::now();
+-    P.mode = 2; P.set = set;
++    P.mode = 2; P.set = layer % pf_nsets();
+     static_cast<ExpertSource*>(srcv)->prefetch(layer, e64.data(), (int64_t) e64.size());
+     P.mode = 0;
+     if (P.bad) return -2;
+@@ -1704,6 +1715,43 @@
+     }
+     return 0;
+ }
++// the same, asynchronous (STRATA_PF_GROUP): the blobs are resolved (the reads joined) and the Metal job is submitted; the job owns a slot of the context until
++// strata_pf_mac_wait, which writes y (the buffer passed here) and releases it.  The blob slots must not be refilled before that wait.  ms[0] = the join.
++extern "C" int strata_pf_mac_submit(void* srcv, int layer, int set, const int32_t* experts, int nd, const float* x, int n_tok, int64_t np,
++                                    const int32_t* eidx, const int32_t* ridx, const float* wt, float* y, void** job, double* ms) {
++    PfMac& P = pfm();
++    MetalLane& M = ml();
++    if (P.slots == nullptr || nd <= 0 || nd > 512 || P.psub == nullptr || P.pwait == nullptr) return -1;
++    static thread_local std::vector<int64_t> e64;
++    e64.assign(experts, experts + nd);
++    const auto t0 = std::chrono::steady_clock::now();
++    P.mode = 2; P.set = layer % pf_nsets();
++    static_cast<ExpertSource*>(srcv)->prefetch(layer, e64.data(), (int64_t) e64.size());
++    P.mode = 0;
++    if (P.bad) return -2;
++    const auto t1 = std::chrono::steady_clock::now();
++    void* j = nullptr;
++    const int rc = P.psub(M.ctx, x, n_tok, np, eidx, ridx, wt, P.ptrs, y, &j);
++    if (rc != 0) {
++        if (P.warned++ < 5) std::fprintf(stderr, "strata pf-mac: exl3m_moe_prefill_submit failed (%d): %s\n", rc, M.lasterr());
++        return -3;
++    }
++    *job = j;
++    if (ms != nullptr) ms[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
++    return 0;
++}
++extern "C" int strata_pf_mac_nsets() { return pf_nsets(); }
++extern "C" int strata_pf_mac_wait(void* job) {
++    PfMac& P = pfm();
++    MetalLane& M = ml();
++    if (job == nullptr || P.pwait == nullptr) return -1;
++    const int rc = P.pwait(M.ctx, job);
++    if (rc != 0) {
++        if (P.warned++ < 5) std::fprintf(stderr, "strata pf-mac: exl3m_wait failed (%d): %s\n", rc, M.lasterr());
++        return -3;
++    }
++    return 0;
++}
+ // verify.cpp: arm the weights + output rows of the next pool call; after it, ask whether the Metal lane produced the reduced rows
+ extern "C" void strata_exl3_metal_arm(const float* w, float* y) {
+     if (!ml_enabled()) return;
+@@ -1771,6 +1819,9 @@
+ extern "C" void strata_pf_mac_release() {}
+ extern "C" int strata_pf_mac_prefetch(void*, int, int, const int32_t*, int) { return -1; }
+ extern "C" int strata_pf_mac_compute(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, double*) { return -1; }
++extern "C" int strata_pf_mac_submit(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, void**, double*) { return -1; }
++extern "C" int strata_pf_mac_wait(void*) { return -1; }
++extern "C" int strata_pf_mac_nsets() { return 2; }
+ extern "C" int strata_exl3_metal_taken() { return 0; }
+ static int exl3_metal_lane(ExpertDispatch&, const float*, const int32_t*, int64_t, int64_t, const int32_t*, double&, double&) { return 0; }
+ #endif
+@@ -1820,16 +1871,16 @@
+                 }
+             }
+             if (P.per_set > 0 && P.slots == nullptr && base_ != nullptr && P.fd >= 0) {
+-                const size_t bytes = (size_t) 2 * (size_t) P.per_set * P.stride;
++                const size_t bytes = (size_t) pf_nsets() * (size_t) P.per_set * P.stride;
+                 void* sp = mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+                 if (sp == MAP_FAILED) return;
+                 std::memset(sp, 0, bytes);
+                 const int lk = mlock(sp, bytes);
+                 if (M.reg(M.ctx, sp, bytes) <= 0) { munmap(sp, bytes); return; }
+                 P.slots = (uint8_t*) sp;
+-                P.tag[0] = P.tag[1] = -1;
++                for (int s = 0; s < 4; ++s) P.tag[s] = -1;
+                 static bool said = false;
+-                if (!said) { said = true; std::fprintf(stderr, "strata pf-mac: 2 sets x %d slots (%.2f GB, mlock %s) registered per prompt, fd %d\n", P.per_set, (double) bytes / 1e9, lk == 0 ? "ok" : "FAILED", P.fd); }
++                if (!said) { said = true; std::fprintf(stderr, "strata pf-mac: %d sets x %d slots (%.2f GB, mlock %s) registered per prompt, fd %d\n", pf_nsets(), P.per_set, (double) bytes / 1e9, lk == 0 ? "ok" : "FAILED", P.fd); }
+             }
+             return;
+         }

@@ -1,0 +1,27 @@
+--- /tmp/orig_verify.cpp	2026-10-11 16:25:43.920465369 -0400
++++ $HOME/sessions/cdl/verify.cpp	2026-10-11 16:07:29.311710491 -0400
+@@ -61,6 +61,8 @@
+ #include <immintrin.h>
+ 
+ extern "C" void strata_mac_pull_begin(int64_t layer, const int64_t* experts, int64_t n);
++extern "C" void strata_exl3_metal_arm(const float* w, float* y);   // STRATA_EXL3_METAL: weights + output rows of the next pool call
++extern "C" int strata_exl3_metal_taken();                           // 1: the Metal lane wrote the weighted, reduced CPU rows
+ namespace strata::core {
+ namespace {
+ 
+@@ -2237,12 +2239,14 @@
+                     hs_merged = strata::tgcu::hs_push_pre(ps, ns, 2) == 0;
+                 }
+                 progress_at("verify window: the CPU experts of layer", l);
++                strata_exl3_metal_arm(h_w_ + (size_t) tb * K_, h_yred_ + (size_t) tb * N_);
+                 if (pool != nullptr)
+                     pool(user, h_x_ + (size_t) tb * N_, ids, n, ss.k, h_ymiss_ + (size_t) tb * K_ * N_, l);
+                 progress_tick();
+                 hs3 = hs_now();
+                 std::atomic_thread_fence(std::memory_order_seq_cst);
+-                for (int t = r0; t <= r1; ++t) {   // the routing-weighted sum of this row's CPU experts
++                const bool metal_rows = strata_exl3_metal_taken() != 0;
++                for (int t = r0; !metal_rows && t <= r1; ++t) {   // the routing-weighted sum of this row's CPU experts (the Metal lane did it itself)
+                     float* acc = h_yred_ + (size_t) (tb + t) * N_;
+                     bool first = true;
+                     for (int64_t j = 0; j < K_; ++j) {

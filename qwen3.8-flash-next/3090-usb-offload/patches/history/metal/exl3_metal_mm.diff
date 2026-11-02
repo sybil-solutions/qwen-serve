@@ -1,0 +1,113 @@
+--- metal/exl3_metal.mm.orig	2026-10-11 22:41:28.921588000 -0400
++++ metal/exl3_metal.mm	2026-10-11 22:42:10.069997926 -0400
+@@ -47,11 +47,11 @@
+     bool busy = false;
+     id<MTLBuffer> d_x, d_tbl, d_xq, d_yg, d_zq, d_yd, d_out;   // decode scratch
+     id<MTLBuffer> stage; size_t stage_blobs = 0;                 // staging for unregistered blobs
+-    id<MTLBuffer> p_x, p_tbl, p_A, p_C, p_Z, p_Yd, p_Wg, p_Wu, p_Wd, p_y;   // prefill scratch (grow only)
+-    size_t p_x_n = 0, p_tbl_n = 0, p_cap = 0, p_wg_n = 0, p_y_n = 0;
++    id<MTLBuffer> p_x, p_tbl, p_A, p_C, p_Z, p_Yd, p_Wg, p_Wu, p_Wd, p_y, p_yh;   // prefill scratch (grow only); p_yh = the fp16 result rows (half-I/O jobs)
++    size_t p_x_n = 0, p_tbl_n = 0, p_cap = 0, p_wg_n = 0, p_y_n = 0, p_yh_n = 0;
+ };
+ 
+-struct Pipes { id<MTLComputePipelineState> rot_dec, mid_dec, comb_dec, gemv[9], rot_pf, decode_w, gemm_gu, gemm_d, mid_pf, comb_pf; };
++struct Pipes { id<MTLComputePipelineState> rot_dec, mid_dec, comb_dec, gemv[9], rot_pf, rot_pf_h, y_f2h, decode_w, gemm_gu, gemm_d, mid_pf, comb_pf; };
+ }  // namespace
+ 
+ struct exl3m_ctx {
+@@ -74,7 +74,7 @@
+ struct exl3m_job {
+     Slot *slot;
+     id<MTLCommandBuffer> cb;
+-    float *y_out;
++    void *y_out;
+     size_t y_bytes;
+     id<MTLBuffer> src;       // shared buffer holding the result
+     double t_submit, t_encode, t_copy;
+@@ -158,7 +158,8 @@
+         for (int m = 1; m <= 8; m *= 2) P.gemv[m] = mkpipe(c, lib, [NSString stringWithFormat:@"gemv_dec_%d", m]);
+         P.rot_pf = mkpipe(c, lib, @"rot_in_pf"); P.decode_w = mkpipe(c, lib, @"decode_w"); P.gemm_gu = mkpipe(c, lib, @"gemm_gu");
+         P.gemm_d = mkpipe(c, lib, @"gemm_d"); P.mid_pf = mkpipe(c, lib, @"mid_pf"); P.comb_pf = mkpipe(c, lib, @"comb_pf");
+-        if (!P.rot_dec || !P.mid_dec || !P.comb_dec || !P.gemv[1] || !P.gemv[2] || !P.gemv[4] || !P.gemv[8] || !P.rot_pf ||
++        P.rot_pf_h = mkpipe(c, lib, @"rot_in_pf_h"); P.y_f2h = mkpipe(c, lib, @"y_f2h");
++        if (!P.rot_dec || !P.mid_dec || !P.comb_dec || !P.gemv[1] || !P.gemv[2] || !P.gemv[4] || !P.gemv[8] || !P.rot_pf || !P.rot_pf_h || !P.y_f2h ||
+             !P.decode_w || !P.gemm_gu || !P.gemm_d || !P.mid_pf || !P.comb_pf) { delete c; return nullptr; }
+         if (n_slots <= 0) n_slots = 2;
+         if (n_slots > 8) n_slots = 8;
+@@ -354,8 +355,8 @@
+ }
+ 
+ // ---------------------------------------------------------------------------------------------------------------------
+-int exl3m_moe_prefill_submit(exl3m_ctx *c, const float *x, int n_tok, int64_t n_pairs, const int32_t *eidx, const int32_t *ridx,
+-                             const float *w, const void *const *blobs, float *y_out, exl3m_job **jobp) {
++static int prefill_submit_impl(exl3m_ctx *c, const void *x, bool half_io, int n_tok, int64_t n_pairs, const int32_t *eidx, const int32_t *ridx,
++                               const float *w, const void *const *blobs, void *y_out, exl3m_job **jobp) {
+     @autoreleasepool {
+         if (n_tok < 1 || n_tok > 16384) return fail("n_tok must be 1..16384");
+         if (n_pairs < 1 || n_pairs > (1 << 20)) return fail("n_pairs must be 1..2^20");
+@@ -420,9 +421,11 @@
+             used.push_back(s->stage);
+         }
+         // scratch
+-        const size_t xbytes = (size_t)n_tok * H * 4;
+-        grow(c, s->p_x, s->p_x_n, xbytes, MTLResourceStorageModeShared);
++        const size_t xbytes = (size_t)n_tok * H * 4;                    // the fp32 accumulation rows (always fp32: a row can be touched by several expert chunks)
++        const size_t xbytes_in = half_io ? xbytes / 2 : xbytes;        // the input rows as the host holds them
++        grow(c, s->p_x, s->p_x_n, xbytes_in, MTLResourceStorageModeShared);
+         grow(c, s->p_y, s->p_y_n, xbytes, MTLResourceStorageModeShared);
++        if (half_io) grow(c, s->p_yh, s->p_yh_n, xbytes / 2, MTLResourceStorageModeShared);
+         grow(c, s->p_tbl, s->p_tbl_n, tbl_bytes + 4096, MTLResourceStorageModeShared);
+         if (s->p_cap < cap_rows) {
+             s->p_A = mkbuf(c, 2 * (size_t)cap_rows * H * 2, PRIV);
+@@ -436,7 +439,7 @@
+         if (!s->p_Wu || s->p_Wu.length < s->p_Wg.length) { s->p_Wu = mkbuf(c, s->p_Wg.length, PRIV); s->p_Wd = mkbuf(c, s->p_Wg.length, PRIV); }
+         {
+             double a = now_ms();
+-            memcpy(s->p_x.contents, x, xbytes);
++            memcpy(s->p_x.contents, x, xbytes_in);
+             tc += now_ms() - a;
+         }
+ 
+@@ -482,7 +485,7 @@
+             // encode
+             PPH pp = { R, (uint32_t)s->p_cap, 0, 0 };
+             const MTLSize tg128 = MTLSizeMake(128, 1, 1);
+-            [en setComputePipelineState:c->P.rot_pf];
++            [en setComputePipelineState:half_io ? c->P.rot_pf_h : c->P.rot_pf];
+             [en setBuffer:s->p_x offset:0 atIndex:0]; [en setBuffer:s->p_tbl offset:o_units atIndex:1]; [en setBuffer:s->p_tbl offset:o_uor atIndex:2];
+             [en setBuffer:s->p_tbl offset:o_src atIndex:3]; [en setBuffer:s->p_A offset:0 atIndex:4]; [en setBytes:&pp length:sizeof pp atIndex:5];
+             if (!(c->skip_mask & 1)) [en dispatchThreadgroups:MTLSizeMake(20, R, 2) threadsPerThreadgroup:tg128];
+@@ -511,8 +514,14 @@
+             [en setBuffer:s->p_y offset:0 atIndex:6];
+             if (!(c->skip_mask & 32)) [en dispatchThreadgroups:MTLSizeMake(20, nt, 1) threadsPerThreadgroup:tg128];
+         }
++        if (half_io) {   // fp32 rows -> fp16 on the GPU (the host's clamp + cast, bit for bit), behind the last chunk's combine
++            const uint32_t nel = (uint32_t)n_tok * H;
++            [en setComputePipelineState:c->P.y_f2h];
++            [en setBuffer:s->p_y offset:0 atIndex:0]; [en setBuffer:s->p_yh offset:0 atIndex:1]; [en setBytes:&nel length:4 atIndex:2];
++            [en dispatchThreads:MTLSizeMake(nel, 1, 1) threadsPerThreadgroup:MTLSizeMake(256, 1, 1)];
++        }
+         [en endEncoding];
+-        exl3m_job *j = new exl3m_job{ s, cb, y_out, xbytes, s->p_y, now_ms(), 0, tc };
++        exl3m_job *j = new exl3m_job{ s, cb, y_out, half_io ? xbytes / 2 : xbytes, half_io ? s->p_yh : s->p_y, now_ms(), 0, tc };
+         j->t_encode = j->t_submit - t0;
+         [cb commit];
+         *jobp = j;
+@@ -521,6 +530,17 @@
+     }
+ }
+ 
++int exl3m_moe_prefill_submit(exl3m_ctx *c, const float *x, int n_tok, int64_t n_pairs, const int32_t *eidx, const int32_t *ridx,
++                             const float *w, const void *const *blobs, float *y_out, exl3m_job **jobp) {
++    return prefill_submit_impl(c, x, false, n_tok, n_pairs, eidx, ridx, w, blobs, y_out, jobp);
++}
++
++// fp16 in / fp16 out: x rows as fp16 (uint16 bits), y_out rows as fp16 = the fp32 accumulated rows clamped to +-65504 and rounded to nearest even
++int exl3m_moe_prefill_h_submit(exl3m_ctx *c, const uint16_t *x16, int n_tok, int64_t n_pairs, const int32_t *eidx, const int32_t *ridx,
++                               const float *w, const void *const *blobs, uint16_t *y16_out, exl3m_job **jobp) {
++    return prefill_submit_impl(c, x16, true, n_tok, n_pairs, eidx, ridx, w, blobs, y16_out, jobp);
++}
++
+ int exl3m_moe_prefill(exl3m_ctx *c, const float *x, int n_tok, int64_t n_pairs, const int32_t *eidx, const int32_t *ridx, const float *w,
+                       const void *const *blobs, float *y_out) {
+     exl3m_job *j = nullptr;

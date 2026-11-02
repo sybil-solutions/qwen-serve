@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EXL3 3bpw card</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#161616}</style>
+<!-- The Local AI brand system (charcoal, crimson, JetBrains Mono + Geist, the @samdape dot hands) from ~/local-omarchy/brand. -->
+<script src="../../local-omarchy/brand/hands.js"></script>
+<script src="../../local-omarchy/brand/brand.js"></script>
+<script src="card.js"></script>
+</head>
+<body>
+<script>
+// The "X post: offload recipe" layout of ~/local-omarchy/brand/index.html (xrecipe), 1200x675, fed from card.js (CARD).
+const { C, FONT, hands: drawHands } = Brand;
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mono = (size, css = '') => `font-family:${FONT.mono};font-size:${size}px;${css}`;
+const label = (t, size = 14, color = C.muted) => `<div style="${mono(size, `letter-spacing:.14em;text-transform:uppercase;color:${color}`)}">${esc(t)}</div>`;
+const sep = (items, pad, size) => items.map((x, i) => `<span style="${i ? `padding-left:${pad}px;border-left:1px solid ${C.line};` : ''}">${esc(x)}</span>`).join('');
+
+const art = drawHands(HANDS, 1200), artTop = 96;
+const stat = ([v, k]) => `<div style="flex:1;padding:14px 0 0;border-top:1px solid ${C.line}"><div style="${mono(34, 'font-weight:500;letter-spacing:-0.03em;line-height:1;color:' + C.text)}">${esc(v)}</div><div style="margin-top:10px">${label(k, 12)}</div></div>`;
+document.body.insertAdjacentHTML('beforeend', `<div id="card" style="width:1200px;height:675px;background:${C.bg};position:relative;overflow:hidden">
+  <div style="position:absolute;left:56px;top:44px;${mono(23, 'font-weight:500;letter-spacing:-0.02em;line-height:1;white-space:nowrap;color:' + C.text)}">${esc(CARD.word)}</div>
+  <div style="position:absolute;right:56px;top:52px;display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;background:${C.crimson}"></span>${label(CARD.tag, 14, C.text)}</div>
+  <div style="position:absolute;left:0;top:${artTop}px;height:${art.height}px;overflow:hidden">${art.svg}</div>
+  <div style="position:absolute;right:56px;top:${artTop + art.height + 4}px;${mono(11, 'color:#5E5C59')}">${esc(CARD.credit)}</div>
+  <div style="position:absolute;left:56px;right:56px;top:${artTop + art.height + 22}px">
+    <div style="${mono(36, 'font-weight:500;letter-spacing:-0.03em;line-height:1;color:' + C.text)}">${esc(CARD.model)}</div>
+    <div style="font-family:${FONT.body};font-size:19px;color:${C.muted};margin-top:8px">${esc(CARD.sub)}</div>
+    <div style="display:flex;gap:28px;margin-top:18px">${CARD.stats.map(stat).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;${mono(12, 'color:' + C.muted)}">${sep(CARD.detail, 14)}</div>
+  </div>
+  <div style="position:absolute;left:56px;right:56px;bottom:18px;display:flex;align-items:center;gap:18px;${mono(13, 'color:' + C.muted)}">${sep(CARD.row, 18)}<span style="margin-left:auto">${esc(CARD.foot)}</span></div>
+</div>`);
+</script>
+</body>
+</html>

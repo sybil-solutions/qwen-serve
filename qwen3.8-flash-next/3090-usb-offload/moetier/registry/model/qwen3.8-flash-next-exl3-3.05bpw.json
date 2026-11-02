@@ -1,0 +1,7 @@
+{
+  "id": "qwen3.8-flash-next-exl3-3.05bpw",
+  "family": "Qwen3.8-Flash-Next",
+  "artifact": "turboderp/Qwen3.8-Flash-Next-exl3 @ 3.05bpw_h5_ng5",
+  "moe": { "layers": 48, "experts": 512, "topk": 10, "shared": 1, "expert_bytes": 1862400 },
+  "store": { "format": "record", "record_bytes": 1863680, "key": "layer*512+expert" }
+}

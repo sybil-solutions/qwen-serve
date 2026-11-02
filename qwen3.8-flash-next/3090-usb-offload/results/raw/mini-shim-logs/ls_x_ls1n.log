@@ -1,0 +1,14 @@
+== ls1n 2026-10-12T00:28:28Z cfg=$HOME/shim/strata-exl3-full512-final-ls1n.json
+[strata] 2026-10-11 17:28:31 engine started: $HOME/shim/run-strata-lockstep.sh --serve --pack $HOME/exl3/pack_full512 --native $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/Qwen3.8-Flash-Next-GSQ-RCO-IQ3_S-00002-of-00002.gguf --expert-profile $HOME/exl3/placement/f512c/profile.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --kv k8v4 --max-context 204800 --mmap-experts --pcie-frac 0 --adapt-every 0 --resident-budget-gib 6 --vram-reserve-mib 100 --no-prefill-borrow --vision
+strata generate: profile $HOME/exl3/placement/f512c/profile.bin: 24576 ranked pairs, built for 24576 slots
+strata generate: expert cache auto: 15.36 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 7820 slots
+strata generate: expert cache 7820 slots, 13.56 GiB of VRAM; policy is
+strata generate: pre-filled 7820 of 7820 slots from the profile in 69.2 s (211 MB/s); slot 0 verified
+FileExpertSource: no device alias (cudaErrorInvalidValue); trying pageable memory
+FileExpertSource: locked resident cache complement ready: resident 4.60 GiB, pinned 0.00 GiB in 5 s; no device alias (cudaErrorInvalidValue); mlock
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 600 MiB of VRAM free with everything loaded
+READY
+p1 5557 42322 ms '**Summary:** This document provides comprehensive technical details for the Strata engine, including benchmarked performance metrics, API usage, configuration settings, and internal mechanisms for opt'
+p2 7672 54945 ms "This document details the setup, performance benchmarks, and technical implementation of the Strata engine's SYCL port for Intel Arc GPUs, highlighting its ability to run large models efficiently with"
+== done

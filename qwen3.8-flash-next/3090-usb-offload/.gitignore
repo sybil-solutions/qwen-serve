@@ -1,0 +1,18 @@
+# build products (every one has a build script in this repo)
+*.dylib
+*.fatbin
+*.cubin
+*.o
+*.air
+*.metallib
+exl3/metal/exl3_metallib.h
+__pycache__/
+# fetched / generated data, never committed (see docs/reproduce.md)
+exl3/td/
+exl3/pack/experts.bin
+exl3/out/
+*.gguf
+*.safetensors
+
+!shim/prebuilt/*
+out/

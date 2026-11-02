@@ -1,0 +1,47 @@
+Mon Oct 12 07:07:20 UTC 2026
+
+=== patches: Strata v0.1.41 + patches/strata/000*.patch
+applied 0001-macos-tgcu-exl3-engine.patch
+applied 0002-server-vision-idle-unload.patch
+applied 0003-prefill-lockstep-groups.patch
+applied 0004-exl3-metal-lane-lru-decode.patch
+vision patch applies to tools/vision
+
+=== cpu: build libexl3cpu, run exl3/test_exl3_cpu.py
+built /tmp/repro-work/cpu/libexl3cpu.dylib
+9fe9cab5491e32e39fcbedfc93043f017f7f1ed60cd65d5211e96a436e42ef3c  libexl3cpu.dylib
+real decode 18 / 18
+had_in [0, 0, 0, 0]
+gemv 60 / 60 max rel RMS 5.587832371028813e-07 negative 1.804
+ALL PASS 106/106 -> /tmp/repro-work/cpu_receipt.json
+
+=== metal: libexl3metal test
+PASS determinism prefill x6 bitwise {}
+PASS prefill chunk size independence (3 vs 16 experts) {'rel_rms': 2.8e-08, 'max_abs': 1.5e-08}
+PASS multi-piece NoCopy registration == single piece (bitwise), all 48 blobs in place {'staged_delta': 0, 'mapped_delta': 48}
+PASS thread safety 6 threads x 12 calls (2 slots) bitwise == serial {'mismatches': 0}
+PASS async submit/wait, two jobs in flight, out-of-order wait {}
+ALL PASS
+
+=== cudart: build shim/libcudart.dylib
+built /tmp/repro-work/cudart/libcudart.dylib
+60266a1101f68fd03a2af018b2df4b71018832878cb8623a69d4b6a2d06f0f86  /tmp/repro-work/cudart/libcudart.dylib
+     136
+
+=== fatbins: exl3_strata / _recon / _pf with nvcc 13.4 in the container, then strata_m4/build.sh
+-rw-r--r--  1 user  staff  662480 Oct 12 00:07 exl3_strata.fatbin
+bb0840d25ca070d43fc3d492330e48eb1752bb11e7704b4dfc2ba1b1aad544d9  exl3_strata.fatbin
+-rw-r--r--  1 user  staff  301576 Oct 12 00:07 exl3_strata_recon.fatbin
+bb7099baba60cb8b90df42ce1f9380e7429bd4818817fe816c70b26018f711f6  exl3_strata_recon.fatbin
+-rw-r--r--  1 user  staff  3380632 Oct 12 00:08 exl3_strata_pf.fatbin
+8baedf9c80bdee40cea9face5b7e1f84d1b01132a8ff01398443824c5670a029  exl3_strata_pf.fatbin
+0000000000001c50 T _exl3s_recon_had
+09b1a211b15c1db10654b8005d7d568b0df837f5add48fee6d5c32f6dad2f213  libstrata_exl3.dylib
+
+=== pack-layer: pack_td.py sync 24 into /tmp/repro-work/exl3 (needs ~1 GB free + network)
+model.language_model.layers.0.mlp.shared_expert.down_proj.trellis
+layer 24: 512 experts, fetched 0.95 GB, mul1 values [-2082680531], fwd rel rms max 5.20e-04, sha 80eb9002da511ea3, 105.6 s -> ok
+layer 24 sha256 fresh fetch: 80eb9002da511ea3  manifest: 80eb9002da511ea3 -> MATCH
+
+done: patches cpu metal cudart fatbins pack-layer
+Mon Oct 12 07:10:11 UTC 2026

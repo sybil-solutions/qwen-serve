@@ -1,0 +1,77 @@
+diff --git a/serve/server.py b/serve/server.py
+index 553f440..3cb2409 100644
+--- a/serve/server.py
++++ b/serve/server.py
+@@ -1857,7 +1857,15 @@ class Vision:
+         self.stopped = True
+         self.lock = threading.Lock()
+         self.cache: dict[str, tuple[Path, int]] = {}
+-        if not lazy:
++        # idle_unload_s (hand-edited key, 0/absent = resident as before): the encoder is not started with the server and
++        # is ended again after this many idle seconds.  On the Mac mini the Metal encoder holds ~1.2 GB wired RAM, which
++        # the engine's file cache and locked tier need.
++        self.idle_s = float(cfg.get("idle_unload_s") or 0)
++        self.idle_unloaded = self.idle_s > 0 and not lazy
++        self.last_used = time.monotonic()
++        if self.idle_s > 0:
++            threading.Thread(target=self._idle_loop, daemon=True).start()
++        if not lazy and not self.idle_unloaded:
+             self._start()
+ 
+     def _start(self):
+@@ -1882,6 +1890,7 @@ class Vision:
+                 pass
+             raise RuntimeError(vision_start_error(line, self.spawn[1]))
+         self.stopped = False
++        self.idle_unloaded = False
+ 
+     def _readline(self, timeout: float, what: str) -> str:
+         """One line from the encoder, waiting at most `timeout` s (#1317).  On a timeout the encoder is killed, so the
+@@ -1906,12 +1915,25 @@ class Vision:
+             raise RuntimeError(f"{what}: it said nothing for {timeout:.0f} s") from None
+ 
+     def alive(self) -> bool:
+-        return self.proc is not None and not self.stopped and self.proc.poll() is None
++        # an encoder that was ended on purpose after idle_unload_s is not "down": the next image starts it again
++        return self.idle_unloaded or (self.proc is not None and not self.stopped and self.proc.poll() is None)
++
++    def _idle_loop(self):
++        while True:
++            time.sleep(max(1.0, min(10.0, self.idle_s / 4)))
++            with self.lock:                                            # encode() holds it for a whole image
++                if (self.proc is not None and not self.stopped and not self.idle_unloaded and
++                        time.monotonic() - self.last_used > self.idle_s):
++                    self.close()
++                    self.idle_unloaded = True
++                    print(f"[strata] vision encoder ended after {self.idle_s:.0f} s idle (its ~1.2 GB goes back); "
++                          "the next image starts it", flush=True)
+ 
+     def unload(self):
+         """Stop the encoder process (its VRAM or RAM goes back); the encoded images stay cached on disk."""
+         self.close()
+         self.stopped = True
++        self.idle_unloaded = False                      # an engine unload is the other kind of "down": restart() starts it with the model
+ 
+     def restart(self):
+         """Start the encoder again after an unload (or if it died); the cache of encoded images is kept."""
+@@ -2026,6 +2048,12 @@ class Vision:
+             if key in self.cache:
+                 self.cache[key] = self.cache.pop(key)                  # most recently used last
+                 return self.cache[key]
++            if self.idle_unloaded:                                     # idle_unload_s: ended after a quiet spell, started by the next image
++                try:
++                    self._start()
++                except RuntimeError as e:
++                    raise ValueError(str(e)) from None
++            self.last_used = time.monotonic()
+             img, out = self.dir / f"{key}.img", self.dir / f"{key}.sve"
+             img.write_bytes(data)
+             try:
+@@ -2042,6 +2070,7 @@ class Vision:
+                 raise ValueError("the image could not be read: " + (line[4:] if line.startswith("ERR") else
+                                                                      "the vision encoder stopped"))
+             self.cache[key] = (out, int(line.split()[1]))
++            self.last_used = time.monotonic()
+             held = {str(p) for p in keep} | {str(out)}
+             for old in list(self.cache):                               # oldest first, but never one still in use
+                 if len(self.cache) <= 64:

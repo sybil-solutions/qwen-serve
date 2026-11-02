@@ -1,0 +1,36 @@
+== R1_before 2026-10-11T14:45:17Z cfg=$HOME/shim/strata-exl3p256.json
+STRATA_DECODE_TIMING=1
+STRATA_EXL3_KEEP_MASK=$HOME/exl3/keep_mask_240.bin
+STRATA_EXL3_SLIM=0
+STRATA_VERIFY_LAYER_AR=0
+[strata] 2026-10-11 07:45:18 engine started: $HOME/shim/run-strata.sh --serve --pack $HOME/exl3/pack_p256 --native $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00001-of-00002.gguf --ple-gguf $HOME/models/qwen38fn/q2p256/Qwen3.8-Flash-Next-Q2_0-P256-00002-of-00002.gguf --expert-profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin --expert-cache auto --prefill 2048 --spec 4 --spec-min-p 0.5 --mtp $HOME/models/qwen38fn/mtp/rt --max-context 8192 --mmap-experts --pcie-frac 0 --adapt-every 0 --no-prefill-borrow
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata serve: 1277 MiB of VRAM free with everything loaded
+READY
+ready after 192 s
+{"i": 0, "wall_s": 90.2, "prompt_n": 29, "prompt_ms": 10307.6, "predicted_n": 300, "predicted_ms": 79868.8, "tok_s": 3.8, "drafts": "202/248", "head": "Here is a Python function that checks if a number is prime, followed by a brief explanatio"}
+{"i": 1, "wall_s": 66.8, "prompt_n": 35, "prompt_ms": 7659.3, "predicted_n": 234, "predicted_ms": 59147.0, "tok_s": 4.0, "drafts": "121/226", "head": "A mixture-of-experts (MoE) model begins by generating a dense vector representation for ea"}
+{"i": 2, "wall_s": 91.5, "prompt_n": 29, "prompt_ms": 5511.8, "predicted_n": 300, "predicted_ms": 86037.6, "tok_s": 3.5, "drafts": "116/204", "head": "The rain lashed against the shore, slick and cold, but the sea remained stubbornly dry. El"}
+-- engine log
+strata generate: profile $HOME/models/qwen38fn/q2p256/expert-profile-p256.bin: 12288 ranked pairs, built for 12288 slots
+strata generate: expert cache auto: 18.47 GiB free, 700 MiB reserved (+184 MiB for the draft head) -> 9296 slots
+strata generate: expert cache 9296 slots, 16.12 GiB of VRAM; policy is
+strata generate: pre-filled 9296 of 9296 slots from the profile in 133.6 s (130 MB/s); slot 0 verified
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 1277 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (1277 MiB of VRAM free)
+strata exl3: keep mask $HOME/exl3/keep_mask_240.bin loaded (quality probe)
+strata verify: capturing the 4-token window (1223 MiB of VRAM free)
+strata verify: capturing the 1-token window (1106 MiB of VRAM free)
+strata verify: capturing the 2-token window (1104 MiB of VRAM free)
+strata verify: capturing the 3-token window (1102 MiB of VRAM free)
+strata decode timing: 101 windows, avg T 3.46, 2.97 tokens/window, 790.78 ms/window = verify 778.51 (GPU-reach wait 29.04 + per-layer host 744.44 [plan 0.10 actq 0.00 jobs 0.03 CPU 68.46] + stage 0.00) + commit/emit 1.09 + draft 11.17; per layer-window: CPU experts 3.57 (6.12 entries), VRAM hits 28.43, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 10308 ms (2.8 tok/s), 300 generated in 79869 ms (3.8 tok/s), drafts accepted 202 of 248, 1 checkpoints
+strata serve: decode expert cache hit rate: 82.3% (137832 hits / 167520 lookups)
+strata decode timing: 116 windows, avg T 2.95, 2.02 tokens/window, 509.89 ms/window = verify 497.67 (GPU-reach wait 31.03 + per-layer host 462.59 [plan 0.10 actq 0.00 jobs 0.03 CPU 25.91] + stage 0.00) + commit/emit 1.16 + draft 11.06; per layer-window: CPU experts 2.13 (3.37 entries), VRAM hits 26.12, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 7659 ms (4.6 tok/s), 234 generated in 59147 ms (4.0 tok/s), drafts accepted 121 of 226, 1 checkpoints
+strata serve: decode expert cache hit rate: 88.6% (145415 hits / 164160 lookups)
+strata decode timing: 186 windows, avg T 2.10, 1.61 tokens/window, 462.57 ms/window = verify 451.14 (GPU-reach wait 27.16 + per-layer host 419.78 [plan 0.08 actq 0.00 jobs 0.03 CPU 30.69] + stage 0.00) + commit/emit 0.91 + draft 10.51; per layer-window: CPU experts 2.92 (4.22 entries), VRAM hits 16.75, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 5512 ms (5.3 tok/s), 300 generated in 86038 ms (3.5 tok/s), drafts accepted 116 of 204, 1 checkpoints
+strata serve: decode expert cache hit rate: 79.9% (149535 hits / 187200 lookups)
+== done 2026-10-11T14:52:38Z

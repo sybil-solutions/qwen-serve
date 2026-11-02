@@ -1,0 +1,242 @@
+--- orig-1011-pfmac/prefill.cpp	2026-10-11 14:01:49
++++ $HOME/strata/src/prefill/prefill.cpp	2026-10-11 14:55:55
+@@ -49,6 +49,7 @@
+ #include <atomic>
+ #include <condition_variable>
+ #include <cstring>
++#include <sys/mman.h>
+ #include <future>
+ #include <memory>
+ #include <mutex>
+@@ -93,6 +94,10 @@
+ }  // namespace strata::prefill::fused
+ #endif
+ 
++extern "C" int strata_pf_mac_init(void*, const int32_t*, int64_t);
++extern "C" int strata_pf_mac_prefetch(void*, int, int, const int32_t*, int);
++extern "C" void strata_pf_mac_release();
++extern "C" int strata_pf_mac_compute(void*, int, int, const int32_t*, int, const float*, int, int64_t, const int32_t*, const int32_t*, const float*, float*, double*);
+ namespace strata::prefill {
+ namespace {
+ 
+@@ -148,6 +153,25 @@
+     static const int64_t env = [] { const char* e = std::getenv("STRATA_PREFILL_STREAM_MIN"); return e ? (int64_t) std::atoll(e) : (int64_t) -1; }();
+     if (env >= 0) return env;
+     return g_stream_min_share > 0 ? g_stream_min_share : (int64_t) 1024;
++}
++// STRATA_PF_MAC=1: the prompt path's cold EXL3 experts (not VRAM-resident) are computed on the Mac's GPU (libexl3metal) instead of streaming over the USB link.
++// STRATA_PF_MAC_MIN (256): the smallest chunk that takes the lane; STRATA_PF_MAC_Y16=1: the partial sums go back as fp16 (half the bytes; a rounding the
++// GPU's own fp32 combine does not have); STRATA_PF_MAC_STATS=1: per-layer timings on stderr.
++inline bool pf_mac_enabled() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_MAC"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
++}
++inline int64_t pf_mac_min() {
++    static const int64_t v = [] { const char* e = std::getenv("STRATA_PF_MAC_MIN"); return e ? (int64_t) std::atoll(e) : (int64_t) 256; }();
++    return v;
++}
++inline bool pf_mac_y16() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_MAC_Y16"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
++}
++inline bool pf_mac_stats() {
++    static const bool on = [] { const char* v = std::getenv("STRATA_PF_MAC_STATS"); return v != nullptr && std::atoi(v) != 0; }();
++    return on;
+ }
+ // STRATA_PREFILL_CPU_SHARE (opt-in; set_cpu_pool): a chunk below stream_all_min() hands the decode CPU pool - idle
+ // while a prompt is read - the non-resident experts few of its tokens route to, instead of streaming them over PCIe.
+@@ -731,6 +755,13 @@
+     // writes (Dm's tail, in Dm's row order), both pinned; and the pool's per-token activations and jobs.
+     float *cpu_x = nullptr, *cpu_rows = nullptr;
+     size_t cpu_x_n = 0, cpu_rows_n = 0;
++    // STRATA_PF_MAC: the Mac cold-expert lane's buffers (host: the fp16 input rows, their fp32 widening, the fp32 partial sums, the weights readback)
++    float* mac_y_dev = nullptr;
++    uint16_t *mac_x16 = nullptr, *mac_y16h = nullptr;
++    float *mac_x32 = nullptr, *mac_y32 = nullptr;
++    std::vector<float> mac_wh, mac_wt;
++    std::vector<int32_t> mac_cold, mac_eidx, mac_ridx, mac_idx_of, mac_next;
++    int64_t mac_pref_l = -1;   // the last layer whose cold experts' reads were queued
+     std::vector<uint8_t> cpu_nact;
+     std::vector<kernels::cpu::ActQ> cpu_actq;   // a Q2_0 layer's activations (the pool's Q2_0 kernels read ActQ)
+     std::vector<kernels::cpu::ExpertJobMulti> cpu_jobs;
+@@ -1156,6 +1187,7 @@
+     m.gated = o.take<float>(T * D, ok); m.inj = o.take<float>(T * HC, ok);
+     m.mixed = o.take<float>(T * N, ok); m.mixed_bf = o.take<uint16_t>(T * N, ok);
+     m.mixed_h = o.take<uint16_t>(T * N, ok);
++    if (pf_mac_enabled()) m.mac_y_dev = o.take<float>(T * N, ok);   // STRATA_PF_MAC: the Mac's partial sums [T x N] fp32 (or fp16 in the first half)
+     // Embedding rows are dead after gr_broadcast on m.cs; subsequent half outputs use the same stream.
+     m.bo = m.emb;
+     if (bf16x2_hc(m.f16_io)) { m.xn16_lo = o.take<uint16_t>(T * D, ok); m.lo16_lo = o.take<uint16_t>(T * LR, ok); }
+@@ -2202,7 +2234,26 @@
+         // `used` event recorded), so the copy stream never waits on an event that is not queued yet
+         const strata::kernels::cpu::ExpertLayout& lay0 = strata::kernels::cpu::expert_layout();
+         // M4 resident-only routing: nothing non-resident is routed, so nothing streams
+-        const bool stream_all = m.ring > STAGE && T >= stream_all_min() && m.src != nullptr &&
++        // STRATA_PF_MAC: from pf_mac_min() tokens a chunk's cold EXL3 experts (not VRAM-resident) are computed on the Mac's GPU (expert_source.cpp PfMac): the
++        // layer's input rows come down the link, the fp32 partial sums go back, instead of every cold blob streaming up it
++        int mac_per_set = 0;
++        if (pf_mac_enabled() && lay0.exl3 && m.host_res != nullptr && m.cache != nullptr && m.src != nullptr && m.mac_y_dev != nullptr && T >= pf_mac_min() && T <= 16384) {
++            mac_per_set = strata_pf_mac_init(m.src, m.host_res, LE);   // the slot sets live for the duration of one prompt (released in Prefill::run)
++            if (mac_per_set <= 0) std::fprintf(stderr, "strata pf-mac: lane NOT available (%d)\n", mac_per_set);
++        }
++        const bool mac_pf = mac_per_set > 0;
++        if (mac_pf && m.mac_x16 == nullptr) {
++            const size_t nel = (size_t) m.T_max * N;
++            void* px = mmap(nullptr, (nel * 2 + 16383) & ~(size_t) 16383, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
++            void *p32 = nullptr, *py = nullptr, *py16 = nullptr;
++            if (px == MAP_FAILED || posix_memalign(&p32, 16384, nel * 4) != 0 || posix_memalign(&py, 16384, nel * 4) != 0 || posix_memalign(&py16, 16384, nel * 2) != 0) {
++                err = "prefill: cannot allocate the Mac lane's host buffers";
++                return false;
++            }
++            m.mac_x16 = (uint16_t*) px; m.mac_x32 = (float*) p32; m.mac_y32 = (float*) py; m.mac_y16h = (uint16_t*) py16;
++            m.mac_wh.assign((size_t) m.T_max * K, 0.0f);
++        }
++        const bool stream_all = m.ring > STAGE && T >= stream_all_min() && m.src != nullptr && !mac_pf &&
+                                 !(strata::kernels::cpu::expert_layout().exl3 && core::exl3_resident_only());
+         // the CPU share: this chunk takes the pool if no other stage of a layer split has it now (released at the end
+         // of the chunk, after the last layer's CPU thread is joined)
+@@ -2933,6 +2984,7 @@
+                     double cpu_ms = 0;                    // the thread's time (the measured share)
+                     std::future<bool> cpu_fut;
+                     int64_t rows_cpu = 0, n_cpu = 0, n_stream = 0;
++                    bool mac_layer = false;               // STRATA_PF_MAC: this layer's cold experts run on the Apple GPU (rows_cpu counts their rows)
+                     bool cpu_arm = true;                  // auto: this layer may share (false: the arm without)
+                     int cpu_set = -1;                     // auto: the wall events' set, -1 when not measured
+                     bool cpu_cold = false;                // auto: one-time costs in the window (no reading)
+@@ -3005,6 +3057,22 @@
+                         int32_t* src_h = grp_mapped ? m.grp_host + 2 * m.grp_tk : m.src_host.data();
+                         if (grp_mapped) copy_i32(m.grp_dev, m.ids, T * K, m.cs);
+                         else cudaMemcpyAsync(m.ids_host.data(), m.ids, (size_t) T * K * 4, cudaMemcpyDeviceToHost, m.cs);
++                        bool mac_x_issued = false;
++                        if (mac_pf) {   // STRATA_PF_MAC: the layer's fp16 MoE input rows start their (lazy) download with the routing readback, for a layer with cold experts
++                            bool any_cold = false;
++                            for (int32_t e = 0; e < m.g->n_expert && !any_cold; ++e) any_cold = m.host_res[(size_t) l * m.g->n_expert + e] < 0;
++                            if (any_cold) { cudaMemcpyAsync(m.mac_x16, m.mixed_h, (size_t) T * N * 2, cudaMemcpyDeviceToHost, m.cs); mac_x_issued = true; }
++                            if (any_cold && T >= 512) {   // the reads of every cold expert of this layer (if not queued yet) and the next one, queued now: the SSD works through the whole layer, not only behind the Metal call
++                                for (int64_t ll = l; ll <= l + 1 && ll < LE; ++ll) {
++                                    if (ll == m.mac_pref_l) continue;
++                                    m.mac_next.clear();
++                                    for (int32_t e = 0; e < m.g->n_expert; ++e)
++                                        if (m.host_res[(size_t) ll * m.g->n_expert + e] < 0) m.mac_next.push_back(e);
++                                    strata_pf_mac_prefetch(m.src, (int) ll, (int) (ll & 1), m.mac_next.data(), (int) m.mac_next.size());
++                                    m.mac_pref_l = ll;
++                                }
++                            }
++                        }
+                         const bool cpu_maybe = pool_hold.held && !stream_all && m.src != nullptr &&
+                                                lay.native && !m.pp && !lay.fmt.empty();
+                         // auto shares only while the layers that share cost less per non-resident expert than their
+@@ -3047,6 +3115,7 @@
+                                           l, p0);
+                         cudaStreamSynchronize(m.cs);
+                         core::progress_at("reading the prompt (batched): layer", l, p0);
++                        if (mac_x_issued) cudaMemcpyAsync(m.mac_wh.data(), m.w, (size_t) T * K * 4, cudaMemcpyDeviceToHost, m.cs);   // the routing weights (80 KB: a plain download)
+                         if (m.cpu_pend) {   // the measured share: the last CPU-sharing layer's GPU time is final now
+                             m.cpu_pend = false;
+                             float g_ms = 0;
+@@ -3131,6 +3200,16 @@
+                                 ++n_cpu;
+                             }
+                         }
++                        if (mac_x_issued) {   // STRATA_PF_MAC: this layer's routed experts that are not in VRAM go to the Mac; their rows are Dm's last block (as the CPU share's)
++                            m.mac_cold.clear();
++                            for (int32_t e = 0; e < m.g->n_expert; ++e)
++                                if (m.cnt[(size_t) e] > 0 && m.host_res[(size_t) l * m.g->n_expert + e] < 0) m.mac_cold.push_back(e);
++                            if (!m.mac_cold.empty()) {
++                                mac_layer = true;
++                                on_cpu.assign((size_t) m.g->n_expert, 0);
++                                for (int32_t e : m.mac_cold) { on_cpu[(size_t) e] = 1; rows_cpu += m.cnt[(size_t) e]; }
++                            }
++                        }
+                         // multi-GPU: the rows of the experts the peer computes go last, as one block [rows_local, T*K)
+                         const bool pre_mmq = mmq_plan().any && mmq_plan().layer[(size_t) l];
+                         std::vector<char> on_peer;
+@@ -3202,7 +3281,7 @@
+                         n_order = order.size();
+                         // set_cpu_pool: the CPU's experts on a thread while this one streams and runs the GPU's; their
+                         // unweighted rows land in Dm's row order, so the combine weights them as any other row
+-                        if (rows_cpu > 0) {
++                        if (rows_cpu > 0 && !mac_layer) {
+                             const size_t want = (size_t) rows_cpu * N;
+                             if (m.cpu_rows_n < want) {
+                                 cpu_cold = true;
+@@ -3835,6 +3914,47 @@
+                         // M4: the layer's batched resident EXL3 experts, one grouped launch set
+                         if (!pf_blob.empty() && !pf_run(pf_blob.data(), pf_cnt.data(), pf_off.data(), (int) pf_blob.size()))
+                             return false;
++                        if (mac_layer) {   // STRATA_PF_MAC: this layer's routed experts that are not in VRAM, on the Apple GPU (expert_source.cpp PfMac)
++                            using Clk = std::chrono::steady_clock;
++                            const auto t0 = Clk::now();
++                            { volatile uint8_t t = ((volatile uint8_t*) m.mac_x16)[0]; (void) t; }   // the first touch downloads the whole lazy range over the link
++                            const auto t1 = Clk::now();
++                            { const _Float16* h = (const _Float16*) m.mac_x16; float* d = m.mac_x32; for (int64_t i = 0; i < T * N; ++i) d[i] = (float) h[i]; }
++                            std::vector<int32_t>& eidx = m.mac_eidx;
++                            std::vector<int32_t>& ridx = m.mac_ridx;
++                            std::vector<float>& wt = m.mac_wt;
++                            eidx.clear(); ridx.clear(); wt.clear();
++                            m.mac_idx_of.assign((size_t) m.g->n_expert, -1);
++                            for (size_t q = 0; q < m.mac_cold.size(); ++q) m.mac_idx_of[(size_t) m.mac_cold[q]] = (int32_t) q;
++                            for (int64_t i = 0; i < T * K; ++i) {
++                                const int32_t dq = m.mac_idx_of[(size_t) ids_h[(size_t) i]];
++                                if (dq < 0) continue;
++                                eidx.push_back(dq); ridx.push_back((int32_t) (i / K)); wt.push_back(m.mac_wh[(size_t) i]);
++                            }
++                            const auto t2 = Clk::now();
++                            double mm[2] = {0, 0};
++                            const int rc = strata_pf_mac_compute(m.src, (int) l, (int) (l & 1), m.mac_cold.data(), (int) m.mac_cold.size(), m.mac_x32, (int) T,
++                                                                 (int64_t) eidx.size(), eidx.data(), ridx.data(), wt.data(), m.mac_y32, mm);
++                            if (rc != 0) { err = "prefill: the Mac cold-expert lane failed at layer " + std::to_string(l) + " (" + std::to_string(rc) + ")"; return false; }
++                            const auto t3 = Clk::now();
++                            if (pf_mac_y16()) {
++                                for (int64_t i = 0; i < T * N; ++i) {
++                                    float v = m.mac_y32[i];
++                                    v = v > 65504.0f ? 65504.0f : (v < -65504.0f ? -65504.0f : v);
++                                    const _Float16 hv = (_Float16) v;
++                                    std::memcpy(&m.mac_y16h[i], &hv, 2);
++                                }
++                                cudaMemcpyAsync(m.mac_y_dev, m.mac_y16h, (size_t) T * N * 2, cudaMemcpyHostToDevice, m.cs);
++                            } else {
++                                cudaMemcpyAsync(m.mac_y_dev, m.mac_y32, (size_t) T * N * 4, cudaMemcpyHostToDevice, m.cs);
++                            }
++                            const auto t4 = Clk::now();
++                            if (pf_mac_stats()) {
++                                auto ms = [](Clk::time_point a, Clk::time_point b) { return std::chrono::duration<double, std::milli>(b - a).count(); };
++                                std::fprintf(stderr, "strata pf-mac: L%lld T=%lld cold=%zu pairs=%zu | x_fetch %.1f | conv+pairs %.1f | blobs(join) %.1f | metal %.1f | y_push %.1f ms\n",
++                                             (long long) l, (long long) T, m.mac_cold.size(), eidx.size(), ms(t0, t1), ms(t1, t2), mm[0], mm[1], ms(t3, t4));
++                            }
++                        }
+                     }
+                     pt.mark(kPfCombine, cs);
+                     if (cpu_fut.valid()) {   // set_cpu_pool: the CPU's rows into Dm's tail
+@@ -3865,12 +3985,22 @@
+                         if (!m.pp->p2p && !m.pp->sums)
+                             copy_f32_wide(m.Dm + (size_t) m.pp->back_at * N, m.pp->host_rows, m.pp->back_rows * N, m.cs);
+                     }
+-                    if (peer_now && m.pp->sums && m.pp->f16)
++                    if (mac_layer && pf_mac_y16())
++                        moe_combine_peer16(m.Dm, m.slot_dev, m.w, m.shared, m.sg, (const uint16_t*) m.mac_y_dev, T * K - rows_cpu, m.bo, T, m.cs);
++                    else if (mac_layer)
++                        moe_combine_peer(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.mac_y_dev, T * K - rows_cpu, m.bo, T, m.cs);
++                    else if (peer_now && m.pp->sums && m.pp->f16)
+                         moe_combine_peer16(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.pp->host_sum16, m.pp->back_at, m.bo, T, m.cs);
+                     else if (peer_now && m.pp->sums)
+                         moe_combine_peer(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.pp->host_sum, m.pp->back_at, m.bo, T, m.cs);
+                     else
+                         moe_combine(m.Dm, m.slot_dev, m.w, m.shared, m.sg, m.bo, T, m.cs);
++                    if (mac_layer && pf_mac_stats()) {   // the GPU's tail behind the hand-off: resident experts + combine still running when the y rows are in
++                        const auto tg = std::chrono::steady_clock::now();
++                        cudaStreamSynchronize(m.cs);
++                        std::fprintf(stderr, "strata pf-mac: L%lld gpu_tail %.1f ms\n", (long long) l,
++                                     std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - tg).count());
++                    }
+                     // debug: STRATA_DBG_NAN=1 reports the first layer of a chunk whose MoE produced non-finite values
+                     if (static const bool dbg = std::getenv("STRATA_DBG_NAN") != nullptr; dbg) {
+                         cudaStreamSynchronize(m.cs);
+@@ -4153,6 +4283,7 @@
+ 
+ bool Prefill::run(const int64_t* tokens, int64_t n, int64_t pos0, std::string& err) {
+     const bool body_ok = run_impl(tokens, n, pos0, err);
++    if (pf_mac_enabled()) strata_pf_mac_release();   // STRATA_PF_MAC: the Mac lane's slot sets are locked RAM the decode wants as file cache
+ 
+     std::string drain_err;
+     const bool drain_ok = drain_pipeline(drain_err);

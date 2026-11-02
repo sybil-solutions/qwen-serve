@@ -1,0 +1,537 @@
+{
+ "ts": "2026-10-10T22:41Z",
+ "gpu": "RTX 3090 sm_86 via tgcu (chestnut ASM2464 USB)",
+ "fatbin": "$HOME/exl3/exl3_m1.fatbin",
+ "exllamav3": "151539c v1.6.0 (vendored, unmodified)",
+ "kernels": 49,
+ "negative_control": {
+  "check": "exl3_recon_k3_cb2 output vs 3INST reference",
+  "elems": 131072,
+  "mismatches": 131058
+ },
+ "cases": [
+  {
+   "kernel": "recon",
+   "K": 1,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 5,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 6,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 7,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 8,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 1,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 5,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 6,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 7,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 8,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 1,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 5,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 6,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 7,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 8,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 2,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009330707025955926,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 3,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009300467424111762,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 4,
+   "cb": 0,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009316852237907746,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 2,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009256230479510803,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 3,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009334497947593447,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 4,
+   "cb": 1,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.000935796635028586,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 2,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 2,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009283317982601816,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 3,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009297992387831095,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 4,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 4,
+   "cb": 2,
+   "k": 256,
+   "n": 512,
+   "rel_rms_vs_f64": 0.0009374594673189658,
+   "elems": 131072,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 2,
+   "k": 2560,
+   "n": 640,
+   "elems": 1638400,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 3,
+   "cb": 2,
+   "k": 2560,
+   "n": 640,
+   "rel_rms_vs_f64": 0.0009329160974404216,
+   "elems": 1638400,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon",
+   "K": 3,
+   "cb": 2,
+   "k": 640,
+   "n": 2560,
+   "elems": 1638400,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had",
+   "K": 3,
+   "cb": 2,
+   "k": 640,
+   "n": 2560,
+   "rel_rms_vs_f64": 0.0009326916482834984,
+   "elems": 1638400,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "had_in",
+   "m": 1,
+   "k": 2560,
+   "elems": 2560,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "had_in",
+   "m": 8,
+   "k": 2560,
+   "elems": 20480,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "had_in",
+   "m": 8,
+   "k": 640,
+   "elems": 5120,
+   "mismatches": 0,
+   "bit_exact": true
+  },
+  {
+   "kernel": "recon_had_perf_spot",
+   "K": 3,
+   "cb": 2,
+   "k": 128,
+   "n": 8192,
+   "elems": 1048576,
+   "mismatches": 0,
+   "bit_exact": true
+  }
+ ],
+ "perf": {
+  "exl3_recon_k3_cb2": {
+   "ms": 0.29,
+   "gweights_s": 231.3,
+   "gbs_read_write": 549.3
+  },
+  "exl3_recon_had_k3_cb2": {
+   "ms": 0.516,
+   "gweights_s": 130.1,
+   "gbs_read_write": 309.0
+  }
+ },
+ "all_bit_exact": true,
+ "regs": {
+  "exl3_recon_k3_cb2": 20,
+  "exl3_recon_had_k3_cb2": 57,
+  "exl3_had_in": 22
+ }
+}

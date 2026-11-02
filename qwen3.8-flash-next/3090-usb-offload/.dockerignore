@@ -1,0 +1,14 @@
+.git
+out
+**/__pycache__
+**/*.dylib
+**/*.o
+exl3/td
+exl3/pack
+exl3/out
+docs
+bench
+moetier
+results/*
+!results/verification
+!results/pack

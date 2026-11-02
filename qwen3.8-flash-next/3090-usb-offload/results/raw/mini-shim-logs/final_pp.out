@@ -1,0 +1,41 @@
+== decode fresh (split_run) 22:50:53
+strata generate: expert cache auto: 17.59 GiB free, 100 MiB reserved (+218 MiB for the draft head) -> 9108 slots
+strata generate: expert cache 9108 slots, 15.80 GiB of VRAM; policy is
+strata generate: pre-filled 9108 of 9108 slots from the profile in 74.8 s (227 MB/s); slot 0 verified
+strata generate: resident RAM mode: 4.54 GiB of experts in RAM (locked), 9108 in the GPU cache; adaptive swaps off
+strata serve: the prompt path allocates its own buffers (too few cache slots to borrow)
+strata serve: 602 MiB of VRAM free with everything loaded
+strata verify: capturing the 6-token window (602 MiB of VRAM free)
+strata exl3-metal: lane ready ($HOME/exl3/metal/libexl3metal.dylib; 1000 slots of 1867776 B registered)
+strata verify: capturing the 4-token window (600 MiB of VRAM free)
+strata verify: capturing the 1-token window (484 MiB of VRAM free)
+strata verify: capturing the 2-token window (482 MiB of VRAM free)
+strata verify: capturing the 3-token window (480 MiB of VRAM free)
+strata decode timing: 91 windows, avg T 3.86, 3.30 tokens/window, 326.50 ms/window = verify 315.34 (GPU-reach wait 31.86 + per-layer host 277.85 [plan 0.08 actq 0.00 jobs 169.91 CPU 52.28] + stage 1.07) + commit/emit 1.02 + draft 10.14; per layer-window: CPU experts 13.93 (20.63 entries), VRAM hits 17.87, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 3606 ms (8.0 tok/s), 300 generated in 29712 ms (10.1 tok/s), drafts accepted 212 of 260, 1 checkpoints
+strata serve: decode expert cache hit rate: 46.4% (78049 hits / 168140 lookups)
+strata serve: resident RAM: 4.54 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata decode timing: 126 windows, avg T 2.94, 2.05 tokens/window, 140.25 ms/window = verify 130.75 (GPU-reach wait 24.32 + per-layer host 101.92 [plan 0.06 actq 0.00 jobs 23.96 CPU 25.46] + stage 1.07) + commit/emit 0.83 + draft 8.67; per layer-window: CPU experts 5.37 (7.71 entries), VRAM hits 21.19, PCIe 0.00
+strata serve: prompt 35 tokens = 0 reused + 35 read in 2246 ms (15.6 tok/s), 258 generated in 17671 ms (14.6 tok/s), drafts accepted 133 of 244, 1 checkpoints
+strata serve: decode expert cache hit rate: 73.3% (128166 hits / 174800 lookups)
+strata serve: resident RAM: 4.54 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+strata decode timing: 157 windows, avg T 2.76, 1.91 tokens/window, 181.01 ms/window = verify 171.54 (GPU-reach wait 31.92 + per-layer host 135.08 [plan 0.05 actq 0.00 jobs 40.78 CPU 40.28] + stage 1.06) + commit/emit 0.83 + draft 8.64; per layer-window: CPU experts 10.50 (17.10 entries), VRAM hits 10.41, PCIe 0.00
+strata serve: prompt 29 tokens = 0 reused + 29 read in 2586 ms (11.2 tok/s), 300 generated in 28419 ms (10.6 tok/s), drafts accepted 144 of 276, 1 checkpoints
+strata serve: decode expert cache hit rate: 37.8% (78459 hits / 207320 lookups)
+strata serve: resident RAM: 4.54 GiB of experts in RAM, 0 exchanged with the VRAM tier, 0 blob reads from the file
+== done 2026-10-11T22:54:29Z
+== warm + prefill rows 22:54:29
+{"chars": 800, "wall_s": 8.2, "prompt_n": 288, "prompt_ms": 7483.8, "prompt_tps": 38.5, "pageins_16k": 249723, "text": "OK"}
+{"chars": 1500, "wall_s": 12.4, "prompt_n": 569, "prompt_ms": 12013.8, "prompt_tps": 47.4, "pageins_16k": 623360, "text": "OK"}
+{"chars": 7000, "wall_s": 24.2, "prompt_n": 2909, "prompt_ms": 23966.9, "prompt_tps": 121.4, "pageins_16k": 1219990, "text": "OK"}
+{"chars": 12000, "wall_s": 32.4, "prompt_n": 4473, "prompt_ms": 32042.9, "prompt_tps": 139.6, "pageins_16k": 1446348, "text": "OK"}
+{"chars": 22000, "wall_s": 47.9, "prompt_n": 7348, "prompt_ms": 47593.3, "prompt_tps": 154.4, "pageins_16k": 2429260, "text": "OK"}
+{"chars": 22000, "wall_s": 46.2, "prompt_n": 7348, "prompt_ms": 45910.0, "prompt_tps": 160.1, "pageins_16k": 2427931, "text": "OK"}
+== exactness 22:57:21
+p1 1636 11712.8 "Strata is a technical documentation page detailing the engine's performance benchmarks, API usage, and configuration settings.\nSpeed (measured)"
+p2 1101 13511.0 'The document provides instructions for setting up and running the Strata engine with SYCL backend on Intel GPUs using Docker, detailing specific configuration adjustments for hardware compatibility an'
+== decode after prefill 22:57:52
+{"i": 0, "wall_s": 32.7, "prompt_n": 29, "prompt_ms": 1971.9, "predicted_n": 300, "predicted_ms": 30758.4, "tok_s": 9.8, "drafts": "212/257", "pageins_mib": 24817, "pageouts_mib": 0, "head": "```python def is_prime(n: int) -> bool:     \"\"\"     Check whether a given integer n is a p"}
+{"i": 1, "wall_s": 20.2, "prompt_n": 35, "prompt_ms": 2236.2, "predicted_n": 258, "predicted_ms": 17959.7, "tok_s": 14.4, "drafts": "133/244", "pageins_mib": 5685, "pageouts_mib": 0, "head": "At the core of a Mixture-of-Experts (MoE) architecture is a lightweight gating network, of"}
+{"i": 2, "wall_s": 31.4, "prompt_n": 29, "prompt_ms": 2583.9, "predicted_n": 300, "predicted_ms": 28846.0, "tok_s": 10.4, "drafts": "144/276", "pageins_mib": 10320, "pageouts_mib": 0, "head": "Elias had lived with the sea for forty years, his skin weathered like driftwood and his ey"}
+== done 22:59:17

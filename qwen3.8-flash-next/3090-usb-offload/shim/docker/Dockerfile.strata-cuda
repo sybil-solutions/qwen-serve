@@ -1,0 +1,8 @@
+# Legacy (mini, manual flow: build.sh and verify-card-free.sh use this image with the CUDA tree mounted from $HOME). The pinned, self-contained build is the root Dockerfile (docker compose run --rm build).
+# The Linux side of the CUDA build: nvcc 13.4 (sm_86 fatbins) and the CMake configure of Strata run in this container (colima on the mini,
+# $HOME bind-mounted 1:1 so every path is the same inside and outside).  Build:
+#   docker build -t strata-cuda:latest --build-arg CUDA_BIN=$HOME/cuda-13.4/bin -f Dockerfile.strata-cuda .
+FROM ubuntu:24.04
+ARG CUDA_BIN
+RUN apt-get update && apt-get install -y --no-install-recommends g++ make cmake ninja-build python3 xz-utils file git ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV PATH=${CUDA_BIN}:$PATH
